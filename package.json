@@ -1,0 +1,21 @@
+{
+    "name": "geelib-suite",
+    "version": "0.0.1",
+    "private": true,
+    "type": "module",
+    "workspaces": [
+      "packages/*"
+    ],
+    "scripts": {
+      "clean": "npm run clean --workspaces",
+      "build": "npm run build --workspaces",
+      "lint": "npm run lint --workspaces",
+      "test": "npm run test --workspaces"
+    },
+    "devDependencies": {
+      "aegir": "^45.0.8"
+    },
+    "dependencies": {
+    }
+  }
+  
