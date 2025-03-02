@@ -1,4 +1,4 @@
-import type { Node, List, Item } from '../types';
+import type { Node, List, Item } from "../ast/ast";
 import type { VisitorRule, VisitorContext } from '../visitor';
 
 
@@ -7,7 +7,7 @@ export class OrFlattener implements VisitorRule {
 	nodeType = 'or';
 
 	visit(node: Node, context: VisitorContext): Node | null {
-		const expressions = node.attributes.get('Expressions') as List;
+		const expressions = node.attributes['Expressions'] as List;
 		const hasNestedOr = expressions.items.some(item => (item as Node).type === 'or');
 		if (!hasNestedOr) return null;
 
@@ -16,7 +16,7 @@ export class OrFlattener implements VisitorRule {
 		for (const item of expressions.items) {
 			const expr = item as Node;
 			if (expr.type === 'or') {
-				const nestedExpr = expr.attributes.get('Expressions') as List;
+				const nestedExpr = expr.attributes['Expressions'] as List;
 				flattened.push(...nestedExpr.items);
 			} else {
 				flattened.push(expr);
@@ -25,9 +25,9 @@ export class OrFlattener implements VisitorRule {
 
 		return {
 			type: 'or',
-			attributes: new Map([
-				['Expressions', { type: 'list', items: flattened, attributes: new Map() }]
-			])
+			attributes: {
+				Expressions: { type: 'list', items: flattened } as List
+			}
 		};
 	}
 }

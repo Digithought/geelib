@@ -1,43 +1,49 @@
-import type { Item, Node, TokenStream, List, Text, RepeatCount, RepeatRange } from './types';
-import { isNode, isList } from './types';
+import type { TokenStream, RepeatCount, RepeatRange } from './types';
+import type { Item, Node, List, Text } from "./ast/ast";
+import { isNode, isList } from "./ast/ast-helpers";
 import { ParserContext } from './parser-context';
-import { DefinitionGroups } from './definition';
 import type { Definition } from './definition';
-import { first } from './it-first';
+import { Associativity } from './definition';
+import type { OptimizedGrammar } from './grammar';
 
 export class Parser {
-  private options: { whitespaceRule?: string; caseSensitive?: boolean };
-
-  constructor(
-    private definitions: DefinitionGroups,
-    options?: { whitespaceRule?: string; caseSensitive?: boolean }
-  ) {
-    this.options = options ?? {};
+  /**
+   * Creates a new Parser instance
+   *
+   * @param grammar The grammar to use for parsing
+   */
+  constructor(public readonly grammar: OptimizedGrammar) {
   }
 
-  parse(reader: TokenStream, root?: string): Item | null {
-    const rootName = root ?? first(this.definitions.keys());
-		if (!rootName) throw new Error('At least one definition is required');
-
-    const context = new ParserContext(reader, false, this.options);
+  /**
+   * Parse input using the grammar
+   *
+   * @param reader Token stream to parse
+   * @returns Parsed item or null if parsing failed
+   */
+  parse(reader: TokenStream): Item | null {
+    const context = new ParserContext(reader, false, this.grammar.options);
     context.pushResults();
-    if (this.parseDefinitionGroup(context, rootName, null)) {
+    if (this.parseDefinitionGroup(context, this.grammar.root, null)) {
       return context.result;
     }
     return null;
   }
 
-  matches(reader: TokenStream, root: string): boolean {
-    const rootName = root ?? first(this.definitions.keys());
-		if (!rootName) throw new Error('At least one definition is required');
-
-    const context = new ParserContext(reader, true, this.options);
+  /**
+   * Check if input matches the grammar
+   *
+   * @param reader Token stream to check
+   * @returns True if the input matches the grammar
+   */
+  matches(reader: TokenStream): boolean {
+    const context = new ParserContext(reader, true, this.grammar.options);
     context.pushResults();
-    return this.parseDefinitionGroup(context, rootName, null);
+    return this.parseDefinitionGroup(context, this.grammar.root, null);
   }
 
   private parseDefinitionGroup(context: ParserContext, definitionName: string, referencer: Node | null): boolean {
-    const group = this.definitions.get(definitionName);
+    const group = this.grammar.definitions[definitionName];
     if (!group) return false;
 
     // Determine minimum precedence based on reference
@@ -50,7 +56,24 @@ export class Parser {
     let bestResult: Item | null = null;
     let anySucceeded = false;
     const leftRecursive = group.isLeftRecursive();
-    const orderedDefinitions = Array.from(group.definitions).sort((a, b) => b.precedence - a.precedence);
+
+    // Sort definitions by precedence and handle associativity
+    const orderedDefinitions = Array.from(group.definitions).sort((a: Definition, b: Definition) => {
+      // First sort by precedence (higher precedence first)
+      if (b.precedence !== a.precedence) {
+        return b.precedence - a.precedence;
+      }
+
+      // If same precedence, sort by associativity
+      // Right associative definitions should come before left associative ones
+      if (a.associativity === Associativity.Right && b.associativity === Associativity.Left) {
+        return -1;
+      } else if (a.associativity === Associativity.Left && b.associativity === Associativity.Right) {
+        return 1;
+      }
+
+      return 0;
+    });
 
     // Try each definition in descending order of precedence
     for (let index = 0; index < orderedDefinitions.length; index++) {
@@ -109,11 +132,10 @@ export class Parser {
     context.beginTransaction();
 
     try {
-      success = this.parseSequence(context, definition.instance.attributes.get('Sequence') as List);
+      success = this.parseSequence(context, definition.instance.attributes['Sequence'] as List);
       if (success) {
         if (isNode) {
-          const node = this.toNode(context.result);
-          this.setParentReferences(node);
+          const node = context.result as Node;
           context.rollbackResult();
           context.pushResults();
           context.append(node);
@@ -174,16 +196,15 @@ export class Parser {
       case 'string': return this.parseStringExpression(context, node);
       case 'charSet': return this.parseCharSetExpression(context, node);
       case 'capture': return this.parseCaptureExpression(context, node);
-      case 'quote': return this.parseQuoteExpression(context, node);
       default:
         throw new Error(`Invalid grammar: Invalid expression node type (${expressionType})`);
     }
   }
 
   private parseRepeatExpression(context: ParserContext, node: Node): boolean {
-    const expression = node.attributes.get('Expression') as Node;
-    const count = node.attributes.get('Count') as Node | undefined;
-    const range = node.attributes.get('Range') as Node | undefined;
+    const expression = node.attributes['Expression'] as Node;
+    const count = node.attributes['Count'] as Node | undefined;
+    const range = node.attributes['Range'] as Node | undefined;
     let found = false;
     let iterations = 0;
 
@@ -195,7 +216,7 @@ export class Parser {
 
         // Check count/range constraints
         if (count) {
-          const countAttr = count.attributes.get('Value') as Text;
+          const countAttr = count.attributes['Value'] as Text;
           if (!countAttr || !('value' in countAttr)) {
             throw new Error('Count node missing Value attribute');
           }
@@ -203,7 +224,7 @@ export class Parser {
           if (iterations >= countValue) break;
         }
         if (range) {
-          const toAttr = range.attributes.get('To') as Text;
+          const toAttr = range.attributes['To'] as Text;
           if (!toAttr || !('value' in toAttr)) {
             throw new Error('Range node missing To attribute');
           }
@@ -220,7 +241,7 @@ export class Parser {
 
       // Validate minimum iterations
       if (range) {
-        const fromAttr = range.attributes.get('From') as Text;
+        const fromAttr = range.attributes['From'] as Text;
         if (!fromAttr || !('value' in fromAttr)) {
           throw new Error('Range node missing From attribute');
         }
@@ -245,16 +266,15 @@ export class Parser {
   }
 
   private parseCaptureExpression(context: ParserContext, node: Node): boolean {
-    const expression = node.attributes.get('Expression') as Node;
+    const expression = node.attributes['Expression'] as Node;
     let success = false;
 
     context.beginTransaction();
     try {
       success = this.parseExpression(context, expression);
       if (success) {
-        const result = context.result;
         context.rollbackResult();
-        context.append({ type: 'capture', attributes: new Map([['value', result]]) });
+        context.append({ type: 'capture', attributes: { Expression: context.result } } as Node);
         context.commitTransaction();
       } else {
         context.rollbackTransaction();
@@ -268,8 +288,8 @@ export class Parser {
   }
 
   private parseSeparatedRepeatExpression(context: ParserContext, node: Node): boolean {
-    const expression = node.attributes.get('Expression') as Node;
-    const separator = node.attributes.get('Separator') as Node;
+    const expression = node.attributes['Expression'] as Node;
+    const separator = node.attributes['Separator'] as Node;
     let first = true;
     let anyFound = false;
 
@@ -329,8 +349,8 @@ export class Parser {
   }
 
   private parseAndNotExpression(context: ParserContext, node: Node): boolean {
-    const expression = node.attributes.get('Expression') as Node;
-    const notExpression = node.attributes.get('NotExpression') as Node;
+    const expression = node.attributes['Expression'] as Node;
+    const notExpression = node.attributes['NotExpression'] as Node;
     let success: boolean;
 
     context.beginTransaction();
@@ -347,8 +367,8 @@ export class Parser {
   }
 
   private parseAsExpression(context: ParserContext, node: Node): boolean {
-    const expression = node.attributes.get('Expression') as Node;
-    const value = (node.attributes.get('Value') as Node).attributes.get('Value') as Text;
+    const expression = node.attributes['Expression'] as Node;
+    const value = ((node.attributes['Value'] as Node).attributes['String'] as Node).attributes['Value'] as Text;
     let success = false;
 
     context.beginTransaction();
@@ -356,7 +376,7 @@ export class Parser {
       success = this.parseExpression(context, expression);
       if (success) {
         context.rollbackResult();
-        context.append({ type: 'text', value: value.value, attributes: new Map() });
+        context.append({ type: 'text', value: value.value } as Text);
         context.commitTransaction();
       } else {
         context.rollbackTransaction();
@@ -370,8 +390,8 @@ export class Parser {
   }
 
   private parseDeclarationExpression(context: ParserContext, node: Node): boolean {
-    const name = (node.attributes.get('Name') as Node).attributes.get('Value') as Text;
-    const expression = node.attributes.get('Expression') as Node;
+    const name = node.attributes['Name'] as Text;
+    const expression = node.attributes['Expression'] as Node;
     let success = false;
 
     context.beginTransaction();
@@ -380,7 +400,7 @@ export class Parser {
       if (success) {
         const result = context.result;
         context.rollbackResult();
-        context.append({ type: 'declaration', attributes: new Map([['name', name], ['value', result]]) });
+        context.append({ type: 'declaration', attributes: { Name: name, Expression: result } } as Node);
         context.commitTransaction();
       } else {
         context.rollbackTransaction();
@@ -394,7 +414,7 @@ export class Parser {
   }
 
   private parseOrExpression(context: ParserContext, node: Node): boolean {
-    const expressions = (node.attributes.get('Expressions') as List).items;
+    const expressions = (node.attributes['Expressions'] as List).items;
     for (const expression of expressions) {
       if (this.parseExpression(context, expression as Node)) {
         return true;
@@ -404,17 +424,17 @@ export class Parser {
   }
 
   private parseGroupExpression(context: ParserContext, node: Node): boolean {
-    return this.parseSequence(context, node.attributes.get('Sequence') as List);
+    return this.parseSequence(context, node.attributes['Sequence'] as List);
   }
 
   private parseOptionalGroupExpression(context: ParserContext, node: Node): boolean {
-    this.parseSequence(context, node.attributes.get('Sequence') as List);
+    this.parseSequence(context, node.attributes['Sequence'] as List);
     return true;
   }
 
   private parseReferenceExpression(context: ParserContext, node: Node): boolean {
-    const referenceName = (node.attributes.get('Name') as Node).attributes.get('Value') as Text;
-    const grammarName = node.attributes.get('GrammarName') as Text;
+    const referenceName = (node.attributes['Name'] as Node).attributes['Value'] as Text;
+    const grammarName = node.attributes['GrammarName'] as Text;
 
     // Handle cross-grammar references
     if (grammarName) {
@@ -433,11 +453,11 @@ export class Parser {
     if (context.reader.eof) return false;
 
     const char = context.reader.read();
-    const from = this.getCharValue(node.attributes.get('From') as Node);
-    const to = this.getCharValue(node.attributes.get('To') as Node);
+    const from = this.getCharValue(node.attributes['From'] as Node);
+    const to = this.getCharValue(node.attributes['To'] as Node);
 
     if (char >= from && char <= to) {
-      context.append({ type: 'text', value: char, attributes: new Map() });
+      context.append({ type: 'text', value: char } as Text);
       context.reader.next();
       return true;
     }
@@ -451,7 +471,7 @@ export class Parser {
     const target = this.getCharValue(node);
 
     if (char === target) {
-      context.append({ type: 'text', value: char, attributes: new Map() });
+      context.append({ type: 'text', value: char } as Text);
       context.reader.next();
       return true;
     }
@@ -459,51 +479,24 @@ export class Parser {
   }
 
   private parseStringExpression(context: ParserContext, node: Node): boolean {
-    const target = (node.attributes.get('Value') as Text).value;
-    const escapeMap = this.getEscapeMap(node);
+    const target = (node.attributes['Text'] as Text).value;
     let success = true;
 
     context.beginTransaction();
     try {
-      let i = 0;
-      while (success && i < target.length) {
-        if (context.reader.eof) {
-          success = false;
-          break;
-        }
-
-        const char = context.reader.read();
-        if (escapeMap && i < target.length - 1) {
-          // Check for escape sequence
-          const sequence = target.substring(i, i + 2);
-          const replacement = escapeMap.get(sequence);
-          if (replacement) {
-            success = char === replacement;
-            i += 2;
-          } else {
-            success = char === target[i];
-            i++;
-          }
-        } else {
-          success = char === target[i];
-          i++;
-        }
-
-        if (success) {
-          context.reader.next();
-        }
-      }
-
-      if (success) {
-        context.append({ type: 'text', value: target, attributes: new Map() });
-        context.commitTransaction();
-      } else {
-        context.rollbackTransaction();
-      }
+			for (let index = 0; success && (index < target.length); index++)
+				success &&= (!context.reader.eof && (target[index] == context.reader.readThenNext()));
     } catch (error) {
       context.rollbackTransaction();
       throw error;
     }
+
+		if (success) {
+			context.append({ type: 'text', value: target } as Text);
+			context.commitTransaction();
+		} else {
+			context.rollbackTransaction();
+		}
 
     return success;
   }
@@ -512,129 +505,60 @@ export class Parser {
     if (context.reader.eof) return false;
 
     const char = context.reader.read();
-    const isAll = node.attributes.has('All');
-    const isNot = node.attributes.has('Not');
-    let matches = isAll;
+    const isAll = node.attributes['All'] as Node | undefined;
+    const isNot = node.attributes['Not'] as Node | undefined;
+    let matches = false;
 
-    if (!isAll) {
-      const entries = node.attributes.get('Entries') as List;
-      matches = entries.items.some(entry => {
-        const entryNode = entry as Node;
-        if (entryNode.type === 'range') {
-          const from = this.getCharValue(entryNode.attributes.get('From') as Node);
-          const to = this.getCharValue(entryNode.attributes.get('To') as Node);
-          return char >= from && char <= to;
-        } else {
-          return char === this.getCharValue(entryNode);
-        }
-      });
+    // Handle the "All" case - matches any character
+    if (isAll) {
+      matches = true;
+    } else {
+      // Handle the Entries case
+      const entries = node.attributes['Entries'] as List;
+			matches = entries.items.some(entry => {
+				const entryNode = entry as Node;
+				if (entryNode.type === 'range') {
+					const from = this.getCharValue(entryNode.attributes['From'] as Node);
+					const to = this.getCharValue(entryNode.attributes['To'] as Node);
+					return char >= from && char <= to;
+				} else {
+					return char === this.getCharValue(entryNode);
+				}
+			});
     }
 
-    matches = matches !== isNot;
+    // Apply the Not modifier if present
+    if (isNot) {
+      matches = !matches;
+    }
+
     if (matches) {
-      context.append({ type: 'text', value: char, attributes: new Map() });
+      context.append({ type: 'text', value: char } as Text);
       context.reader.next();
     }
     return matches;
   }
 
-  private parseQuoteExpression(context: ParserContext, node: Node): boolean {
-    const textAttr = node.attributes.get('Text') as Text;
-    if (!textAttr || !('value' in textAttr)) {
-      throw new Error('Quote node missing Text attribute');
-    }
-    const text = textAttr.value;
-    let success = true;
-
-    context.beginTransaction();
-    try {
-      // Handle whitespace before if whitespace rule is defined
-      if (context.whitespaceRule) {
-        success = this.parseDefinitionGroup(context, context.whitespaceRule, null);
-        if (!success) {
-          context.rollbackTransaction();
-          return false;
-        }
-      }
-
-      // Match the actual text with case sensitivity based on grammar options
-      for (let i = 0; success && i < text.length; i++) {
-        if (context.reader.eof) {
-          success = false;
-          break;
-        }
-
-        const char = context.reader.read();
-        if (context.caseSensitive) {
-          success = char === text[i];
-        } else {
-          success = char.toLowerCase() === text[i]!.toLowerCase();
-        }
-
-        if (success) {
-          context.reader.next();
-        }
-      }
-
-      // Handle whitespace after if whitespace rule is defined
-      if (success && context.whitespaceRule) {
-        success = this.parseDefinitionGroup(context, context.whitespaceRule, null);
-      }
-
-      if (success) {
-        context.append({ type: 'text', value: text, attributes: new Map() });
-        context.commitTransaction();
-      } else {
-        context.rollbackTransaction();
-      }
-    } catch (error) {
-      context.rollbackTransaction();
-      throw error;
-    }
-
-    return success;
-  }
-
   private getCharValue(node: Node): string {
-    const index = node.attributes.get('Index');
+    // Handle the '#' Index : digit* format
+    const index = node.attributes['Index'] as Text;
     if (index && 'value' in index) {
-      return String.fromCharCode(parseInt((index as Text).value));
+      return String.fromCharCode(parseInt(index.value));
     }
-    const charValue = node.attributes.get('Char');
-    if (!charValue || !('value' in charValue)) {
-      throw new Error('Node has no valid Char attribute');
-    }
-    return (charValue as Text).value;
+		// Handle the Literal : ('''''' as '''' | {?}) format
+    const charValue = node.attributes['Literal'] as Text;
+    return charValue.value;
   }
 
   private createNode(type: string): Node {
     return {
       type: type as any,
-      attributes: new Map(),
-      parent: undefined
+      attributes: {},
     };
   }
 
-  private setParentReferences(node: Node): void {
-    const values = Array.from(node.attributes.values());
-    for (const value of values) {
-      if (isNode(value)) {
-        value.parent = node;
-        this.setParentReferences(value);
-      } else if (isList(value)) {
-        const list = value as List;
-        for (const item of list.items) {
-          if (isNode(item)) {
-            item.parent = node;
-            this.setParentReferences(item);
-          }
-        }
-      }
-    }
-  }
-
   private getExpressionType(node: Node): string {
-    const keys = Array.from(node.attributes.keys());
+    const keys = Object.keys(node.attributes);
     if (keys.length === 0) throw new Error('Node has no attributes');
     const type = keys[0];
     if (!type) throw new Error('Node has no expression type');
@@ -644,7 +568,7 @@ export class Parser {
   private containsDeclaration(node: Node): boolean {
     if (node.type === 'declaration') return true;
 
-    const values = Array.from(node.attributes.values());
+    const values = Object.values(node.attributes);
     for (const value of values) {
       if (isNode(value)) {
         if (this.containsDeclaration(value)) return true;
@@ -657,34 +581,5 @@ export class Parser {
     }
 
     return false;
-  }
-
-  private toNode(item: Item): Node {
-    // Implementation of node conversion logic
-    return item as Node;
-  }
-
-  private getEscapeMap(node: Node): Map<string, string> | undefined {
-    // Look for any 'as' expressions in parent nodes
-    const escapeMap = new Map<string, string>();
-    let current: Node = node;
-
-    while (current) {
-      if (current.type === 'as') {
-        const expr = current.attributes.get('Expression') as Node;
-        const value = current.attributes.get('Value') as Node;
-        if (expr?.type === 'string' && value?.type === 'string') {
-          const fromAttr = expr.attributes.get('Value') as Text;
-          const toAttr = value.attributes.get('Value') as Text;
-          if (fromAttr && 'value' in fromAttr && toAttr && 'value' in toAttr) {
-            escapeMap.set(fromAttr.value, toAttr.value);
-          }
-        }
-      }
-      if (!current.parent) break;
-      current = current.parent;
-    }
-
-    return escapeMap.size > 0 ? escapeMap : undefined;
   }
 }

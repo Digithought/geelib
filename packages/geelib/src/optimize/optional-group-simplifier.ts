@@ -1,4 +1,4 @@
-import type { Node, List } from '../types';
+import type { Node, List } from "../ast/ast";
 import type { VisitorRule, VisitorContext } from '../visitor';
 
 
@@ -7,7 +7,7 @@ export class OptionalGroupSimplifier implements VisitorRule {
 	nodeType = 'optional';
 
 	visit(node: Node, context: VisitorContext): Node | null {
-		const sequence = node.attributes.get('Sequence') as List;
+		const sequence = node.attributes['Sequence'] as List;
 
 		// If single child is optional group, absorb child
 		if (sequence.items.length === 1) {
@@ -15,10 +15,10 @@ export class OptionalGroupSimplifier implements VisitorRule {
 			if (child.type === 'optional') {
 				return {
 					type: 'optional',
-					attributes: new Map([
-						['Sequence', child.attributes.get('Sequence')!]
-					])
-				};
+					attributes: {
+						Sequence: child.attributes['Sequence']
+					}
+				} as Node;
 			}
 		}
 
@@ -26,9 +26,9 @@ export class OptionalGroupSimplifier implements VisitorRule {
 		if (sequence.items.every(item => (item as Node).type === 'optional')) {
 			return {
 				type: 'group',
-				attributes: new Map([
-					['Sequence', sequence]
-				])
+				attributes: {
+					Sequence: sequence
+				}
 			};
 		}
 

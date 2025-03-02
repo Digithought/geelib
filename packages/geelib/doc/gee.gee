@@ -1,5 +1,5 @@
-/* 
-	G4 grammar definition 
+/*
+	Gee grammar definition
 
 	* (Double) quotes imply:
 		Surrounding of whitespace, if a whitespace definition is specified in the header
@@ -12,25 +12,25 @@
 	* The first definition is assumed to be the default ("root")
 */
 
-grammar G4
-	comparer : sensitive
-	whitespace : _
+grammar Gee
+	comparer: sensitive
+	whitespace: _
 
 Unit :=
-	[ 
-		"grammar" Name : identifier 
+	[
+		"grammar" Name : identifier
 		[ "comparer" ":" Comparer : ( "sensitive" | "insensitive" ) ]
 		[ "whitespace" ":" Whitespace : identifier ]
 	]
 	Definitions : [ Definition ]*
-		
+
 Definition :=
 	Name : identifier [ Precedence : integer ] [ Associativity : { "L", "R" } ] Type : ( "=" | ":=" )
 		Sequence
-		
+
 Sequence :=
 	expression*
-		
+
 expression =
 	Range | Char | String | Quote | CharSet | Reference | Group | OptionalGroup
 
@@ -42,68 +42,68 @@ expression 0 =
 
 expression 1 =
 	Repeat | As | AndNot | SeparatedRepeat | Capture
-		
+
 Declaration :=
 	Name : identifier ":" Expression : expression
-		
+
 Or :=
 	Expressions : expression^"|"
-		
+
 Repeat :=
 	Expression : expression "*" [ Count : integer | (From : integer ".." To : (integer | "n")) ]
-		
+
 SeparatedRepeat :=
 	Expression : expression "^" Separator : expression
-		
+
 Capture :=
 	Expression : expression "+"
 
 AndNot :=
 	Expression : expression "&!" NotExpression : expression
-		
+
 As :=
 	Expression : expression "as" Value : String
-		
+
 Group :=
 	"(" Sequence ")"
-		
+
 OptionalGroup :=
 	"[" Sequence "]"
-		
+
 Reference :=
 	[ GrammarName : identifier "." ] Name : identifier &! ( Definition | Declaration )
-		
+
 Quote :=
 	_ '"' Text : [ '""' as '"' | {?} &! '"' ]* '"' _
 
 String :=
 	_ '''' Text : [ '''''' as '''' | {?} &! '''' ]* '''' _
-		
+
 Range :=
 	From : Char ".." To : Char
-		
+
 Char :=
 	_ ( '#' Index : digit* ) | ( '''' Literal : ('''''' as '''' | {?}) '''' &! '''''' ) _
-		
+
 CharSet :=
 	"{" [ Not : "!" ] All : "?" | Entries : (Range | Char)^"," "}"
 
 identifier =
 	_ ( letter | '_' [ letter | digit | '_' ]* )+ _
-		
+
 integer = _ digit*+ _
 
 letter =
 	{ 'a'..'z', 'A'..'Z' }
-		
+
 digit =
 	'0'..'9'
-		
+
 _ =
 	[ { ' ', #9..#13 } | lineComment | blockComment ]*
-		
+
 blockComment =
 	'/*' [ blockComment | {?} &! '*/' ]* '*/'
-		
+
 lineComment =
 	'//' [ {! #10, #13 } ]*

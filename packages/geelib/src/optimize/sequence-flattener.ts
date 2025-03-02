@@ -1,37 +1,28 @@
-import type { Node, Item, List } from '../types';
-import { isNode, isList } from '../types';
+import type { Node, List } from "../ast/ast";
+import { isNode } from "../ast/ast-helpers";
 import type { VisitorRule, VisitorContext } from '../visitor';
 
 
 export class SequenceFlattener implements VisitorRule {
 	name = 'SequenceFlattener';
-	nodeType = 'sequence';
+	nodeType = 'expression';
 
 	visit(node: Node, context: VisitorContext): Node | null {
-		const hasDirectGroupChild = Array.from(node.attributes.values()).some(value =>
-			isList(value) && value.items.some(item => isNode(item) && item.type === 'group'));
+		const sequence = node.attributes['Sequence'] as List;
+		if (!sequence) return null;
 
-		if (!hasDirectGroupChild) return null;
+		const expressions = sequence.items;
+		const hasGroup = expressions.some(item => isNode(item) && item.type === 'group');
+		if (!hasGroup) return null;
 
 		// Expand direct child groups
-		const newAttributes = new Map();
-		for (const [key, value] of node.attributes.entries()) {
-			if (isList(value)) {
-				const flattened: Item[] = [];
-				for (const item of value.items) {
-					if (isNode(item) && item.type === 'group') {
-						const groupSeq = item.attributes.get('Sequence') as List;
-						flattened.push(...groupSeq.items);
-					} else {
-						flattened.push(item);
-					}
-				}
-				newAttributes.set(key, { type: 'list', items: flattened, attributes: value.attributes });
-			} else {
-				newAttributes.set(key, value);
+		const newExpressions = expressions.flatMap(e => {
+			if (isNode(e) && e.type === 'group') {
+				return (e.attributes['Sequence'] as List).items;
 			}
-		}
+			return [e];
+		});
 
-		return { ...node, attributes: newAttributes };
+		return { ...node, attributes: { ...node.attributes, Sequence: { type: 'list', items: newExpressions } as List } };
 	}
 }

@@ -1,5 +1,5 @@
-import type { Node, List, Item } from './types.js';
-import { isNode, isList } from './types.js';
+import type { Node, List, Item } from "./ast/ast.js";
+import { isNode, isList } from "./ast/ast-helpers.js";
 
 export interface VisitorContext {
   whitespaceRule?: string;
@@ -48,8 +48,8 @@ export class NodeVisitor {
       }
     }
 
-    const newAttributes = new Map<string, Item>();
-    for (const [key, value] of current.attributes.entries()) {
+    const newAttributes: Record<string, Item> = {};
+    for (const [key, value] of Object.entries(current.attributes)) {
       let newValue: Item | undefined;
 
       if (isNode(value)) {
@@ -60,19 +60,18 @@ export class NodeVisitor {
           type: 'list',
           items: list.items.map(item =>
             isNode(item) ? this.visit(item, context) : item
-          ),
-          attributes: list.attributes
-        };
+          )
+        } as List;
       } else if (value) {
         newValue = value;
       }
 
       if (newValue) {
-        newAttributes.set(key, newValue);
+        newAttributes[key] = newValue;
       }
     }
 
-    return { ...current, attributes: newAttributes };
+    return { ...current, attributes: { ...current.attributes, ...newAttributes } };
   }
 }
 

@@ -1,5 +1,6 @@
-import type { Item, TokenStream, Text, List } from './types';
-import { isList } from './types';
+import type { TokenStream } from './types';
+import type { Item, Text, List } from "./ast/ast";
+import { isList } from "./ast/ast-helpers";
 
 export enum CacheStatus {
   False = 0,
@@ -141,10 +142,9 @@ export class ParserContext {
     this.pushResult({
       type: 'text',
       value: '',
-      attributes: new Map(),
       start: this.reader.position,
       end: this.reader.position
-    });
+    } as Text);
   }
 
   commitResult(): void {
@@ -204,7 +204,6 @@ export class ParserContext {
       const list: List = {
         type: 'list',
         items: [target, source],
-        attributes: new Map(),
         start: Math.min(target.start!, source.start!),
         end: Math.max(target.end!, source.end!)
       };

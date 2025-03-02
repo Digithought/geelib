@@ -1,4 +1,4 @@
-import type { Node, List } from '../types';
+import type { Node, List } from "../ast/ast";
 import type { VisitorRule, VisitorContext } from '../visitor';
 
 
@@ -7,7 +7,7 @@ export class GroupSimplifier implements VisitorRule {
 	nodeType = 'group';
 
 	visit(node: Node, context: VisitorContext): Node | null {
-		const sequence = node.attributes.get('Sequence') as List;
+		const sequence = node.attributes['Sequence'] as List;
 		if (sequence.items.length === 1) {
 			return sequence.items[0] as Node;
 		}

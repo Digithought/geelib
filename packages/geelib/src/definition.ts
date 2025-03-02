@@ -1,5 +1,5 @@
 import { CharSet } from './types';
-import type { Node } from './types';
+import type { Node } from "./ast/ast";
 
 export enum Associativity {
   None = 0,
@@ -38,34 +38,34 @@ export interface Definition {
 }
 
 export interface DefinitionGroup {
-  definitions: Set<Definition>;
+  definitions: Definition[];
   referenceMinPrecedents: Map<Node, number>;
   filter?: Filter;
   recursiveness?: number;
   isLeftRecursive(): boolean;
 }
 
-export class DefinitionGroups extends Map<string, DefinitionGroup> {
-  static createDefinitionGroup(name: string): DefinitionGroup {
-    return {
-      definitions: new Set(),
-      referenceMinPrecedents: new Map(),
-      recursiveness: Recursiveness.None,
-      isLeftRecursive() {
-        return (this.recursiveness! & (Recursiveness.Left | Recursiveness.Full)) !== Recursiveness.None;
-      }
-    };
-  }
+export type DefinitionGroups = Record<string, DefinitionGroup>;
 
-  static createDefinition(name: string, precedence: number, instance: Node): Definition {
-    return {
-      name,
-      precedence,
-      instance,
-      recursiveness: Recursiveness.None,
-      isLeftRecursive() {
-        return (this.recursiveness! & (Recursiveness.Left | Recursiveness.Full)) !== Recursiveness.None;
-      }
-    };
-  }
+export function createDefinitionGroup(name: string): DefinitionGroup {
+	return {
+		definitions: [],
+		referenceMinPrecedents: new Map(),
+		recursiveness: Recursiveness.None,
+		isLeftRecursive() {
+			return (this.recursiveness! & (Recursiveness.Left | Recursiveness.Full)) !== Recursiveness.None;
+		}
+	};
+}
+
+export function createDefinition(name: string, precedence: number, instance: Node): Definition {
+	return {
+		name,
+		precedence,
+		instance,
+		recursiveness: Recursiveness.None,
+		isLeftRecursive() {
+			return (this.recursiveness! & (Recursiveness.Left | Recursiveness.Full)) !== Recursiveness.None;
+		}
+	};
 }

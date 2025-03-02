@@ -1,27 +1,3 @@
-export type NodeType =
-  | 'block'
-  | 'definition'
-  | 'sequence'
-  | 'repeat'
-  | 'separated'
-  | 'andNot'
-  | 'as'
-  | 'declaration'
-  | 'or'
-  | 'group'
-  | 'optional'
-  | 'reference'
-  | 'range'
-  | 'char'
-  | 'string'
-  | 'charSet'
-  | 'text'
-  | 'list'
-  | 'capture'
-  | 'count'
-  | 'fromTo'
-  | 'quote';
-
 export interface RepeatCount {
   type: 'count';
   value: number;
@@ -32,27 +8,6 @@ export interface RepeatRange {
   from: number;
   to: number | 'n';
 }
-
-export interface Node {
-  type: NodeType;
-  attributes: Map<string, Item>;
-  start?: number;
-  end?: number;
-  grammarName?: string;
-  parent?: Node;
-}
-
-export interface Text extends Node {
-  type: 'text';
-  value: string;
-}
-
-export interface List extends Node {
-  type: 'list';
-  items: Item[];
-}
-
-export type Item = Node | Text | List;
 
 export interface TokenStream {
   read(): string;
@@ -140,12 +95,4 @@ export class CharSet {
 
     this.ranges = inverted;
   }
-}
-
-export function isNode(value: any): value is Node {
-  return value && typeof value === 'object' && 'type' in value && !('items' in value) && !('value' in value);
-}
-
-export function isList(value: any): value is List {
-  return value && typeof value === 'object' && 'items' in value;
 }
