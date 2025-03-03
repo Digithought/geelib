@@ -1,0 +1,6 @@
+---
+description: General information about the geelib codebase
+globs: 
+alwaysApply: false
+---
+Root is npm workspace.  The geelib codebase lives in packages/geelib.  Geelib uses aegir (mocha tests), ES modules, and TypeScript.  Tests go in "test" folder and must end in `*.spec.ts`.  Documentation is in `doc` folder.

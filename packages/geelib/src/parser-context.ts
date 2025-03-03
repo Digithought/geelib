@@ -73,10 +73,12 @@ export class ParserContext {
     const entry = bucket.get(definition);
     if (!entry) return null;
 
-    if ((entry.status & CacheStatus.True) !== CacheStatus.False) {
+    if ((entry.status & CacheStatus.True) === CacheStatus.True) {
       this.reader.position += entry.length!;
-      if (entry.result) {
+      if (entry.result && this.resultStack.length > 0) {
         this.append(entry.result);
+      } else if (entry.result) {
+        this.pushResult(entry.result);
       }
       return true;
     }

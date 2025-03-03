@@ -1,0 +1,24 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../C4/Master/Alphora.G4.Compiler"
+		},
+		{
+			"path": "../../C4/Master/Alphora.G4.Core"
+		},
+		{
+			"path": "../../C4/Master/Alphora.G4.Parser"
+		},
+		{
+			"path": "../../C4/Master/Alphora.G4"
+		}
+	],
+	"settings": {
+		"cSpell.words": [
+			"Recursiveness"
+		]
+	}
+}
