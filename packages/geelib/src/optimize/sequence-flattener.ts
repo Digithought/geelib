@@ -1,6 +1,6 @@
-import type { Node, List } from "../ast/ast";
-import { isNode } from "../ast/ast-helpers";
-import type { VisitorRule, VisitorContext } from '../visitor';
+import type { Node, List } from "../ast/ast.js";
+import { isNode } from "../ast/ast-helpers.js";
+import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 
 export class SequenceFlattener implements VisitorRule {

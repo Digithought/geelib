@@ -1,5 +1,5 @@
-import type { Item, List, Node, Text } from "../ast/ast";
-import type { VisitorRule, VisitorContext } from '../visitor';
+import type { Item, List, Node, Text } from "../ast/ast.js";
+import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 // Rule implementations
 

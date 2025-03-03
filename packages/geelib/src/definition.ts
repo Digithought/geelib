@@ -1,5 +1,5 @@
-import { CharSet } from './types';
-import type { Node } from "./ast/ast";
+import { CharSet } from './types.js';
+import type { Node } from "./ast/ast.js";
 
 export enum Associativity {
   None = 0,

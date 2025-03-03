@@ -1,10 +1,10 @@
-import type { TokenStream, RepeatCount, RepeatRange } from './types';
-import type { Item, Node, List, Text } from "./ast/ast";
-import { isNode, isList } from "./ast/ast-helpers";
-import { ParserContext } from './parser-context';
-import type { Definition } from './definition';
-import { Associativity } from './definition';
-import type { OptimizedGrammar } from './grammar';
+import type { TokenStream, RepeatCount, RepeatRange } from './types.js';
+import type { Item, Node, List, Text } from "./ast/ast.js";
+import { isNode, isList } from "./ast/ast-helpers.js";
+import { ParserContext } from './parser-context.js';
+import type { Definition } from './definition.js';
+import { Associativity } from './definition.js';
+import type { OptimizedGrammar } from './grammar.js';
 
 export class Parser {
   /**

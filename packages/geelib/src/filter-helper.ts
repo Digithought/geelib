@@ -1,7 +1,7 @@
-import { CharSet } from './types';
-import type { Node, List, Text } from "./ast/ast";
-import type { DefinitionGroups } from './definition';
-import type { Filter } from './definition';
+import { CharSet } from './types.js';
+import type { Node, List, Text } from "./ast/ast.js";
+import type { DefinitionGroups } from './definition.js';
+import type { Filter } from './definition.js';
 
 interface FilterContext {
   evaluating: Set<string>;
@@ -62,11 +62,23 @@ export class FilterHelper {
   }
 
   private determineDefinition(definition: { instance: Node }): Filter | null {
+    // If the instance is not a sequence, handle it directly
+    if (definition.instance.type !== 'sequence') {
+      return this.determineExpression(definition.instance);
+    }
+
     const sequence = definition.instance.attributes['Sequence'] as List;
+    if (!sequence) {
+      return null;
+    }
     return this.determineSequence(sequence);
   }
 
   private determineSequence(sequence: List): Filter | null {
+    if (!sequence || !sequence.items) {
+      return null;
+    }
+
     const result: Filter = {
       charSet: new CharSet(),
       isExclusive: true
@@ -127,7 +139,16 @@ export class FilterHelper {
       }
 
       case 'reference': {
-        const name = (node.attributes['Name'] as Node).attributes['Value'] as Text;
+        const nameNode = node.attributes['Name'] as Node;
+        if (!nameNode || !nameNode.attributes || !nameNode.attributes['Value']) {
+          return null;
+        }
+
+        const name = nameNode.attributes['Value'] as Text;
+        if (!name || !name.value) {
+          return null;
+        }
+
         const targetGroup = this.definitions[name.value];
         if (!targetGroup) return null;
 

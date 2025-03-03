@@ -1,5 +1,5 @@
-import type { Node, List } from "../ast/ast";
-import type { VisitorRule, VisitorContext } from '../visitor';
+import type { Node, List } from "../ast/ast.js";
+import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 
 export class OptionalGroupSimplifier implements VisitorRule {

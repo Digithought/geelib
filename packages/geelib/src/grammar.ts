@@ -1,4 +1,4 @@
-import type { DefinitionGroups } from './definition';
+import type { DefinitionGroups } from './definition.js';
 
 export interface GrammarOptions {
   /**

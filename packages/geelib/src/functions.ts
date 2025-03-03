@@ -1,11 +1,11 @@
-import type { TokenStream } from './types';
-import type { Item, Node } from "./ast/ast";
-import { OptimizedGrammar } from './grammar';
-import { Parser } from './parser';
-import { optimize } from './optimize/optimizer';
-import { StringStream } from './string-stream';
-import { buildGrammar } from './grammar-builder';
-import { geeAst } from './ast/gee-ast';
+import type { TokenStream } from './types.js';
+import type { Item, Node } from "./ast/ast.js";
+import { OptimizedGrammar } from './grammar.js';
+import { Parser } from './parser.js';
+import { optimize } from './optimize/optimizer.js';
+import { StringStream } from './string-stream.js';
+import { buildGrammar } from './grammar-builder.js';
+import { geeAst } from './ast/gee-ast.js';
 
 /**
  * Parse a grammar text and create a Grammar instance

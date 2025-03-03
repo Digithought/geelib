@@ -1,4 +1,4 @@
-import { list, node, text } from "./ast";
+import { list, node, text } from "./ast.js";
 
 export const geeAst = node('unit', {
 	Name: text('Gee'),

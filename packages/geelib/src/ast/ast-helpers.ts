@@ -1,4 +1,4 @@
-import type { Node, List, Item } from "./ast";
+import type { Node, List, Item } from "./ast.js";
 
 export function isNode(value: any): value is Node {
 	return value && typeof value === 'object' && 'attributes' in value;

@@ -1,4 +1,4 @@
-import type { TokenStream } from './types';
+import type { TokenStream } from './types.js';
 
 export class StringStream implements TokenStream {
   private _position = 0;

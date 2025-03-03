@@ -1,6 +1,6 @@
-import type { TokenStream } from './types';
-import type { Item, Text, List } from "./ast/ast";
-import { isList } from "./ast/ast-helpers";
+import type { TokenStream } from './types.js';
+import type { Item, Text, List } from "./ast/ast.js";
+import { isList } from "./ast/ast-helpers.js";
 
 export enum CacheStatus {
   False = 0,

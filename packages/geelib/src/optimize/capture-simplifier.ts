@@ -1,5 +1,5 @@
-import type { Node } from "../ast/ast";
-import type { VisitorRule, VisitorContext } from '../visitor';
+import type { Node } from "../ast/ast.js";
+import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 
 export class CaptureSimplifier implements VisitorRule {

@@ -1,8 +1,8 @@
-import { isNode, isList } from "./ast/ast-helpers";
-import type { Definition, DefinitionGroup, DefinitionGroups } from "./definition";
-import { Associativity, RecurseMask, Recursiveness, createDefinition } from "./definition";
-import type { List, Node, Text } from "./ast/ast";
-import { Grammar } from "./grammar";
+import { isNode, isList } from "./ast/ast-helpers.js";
+import type { Definition, DefinitionGroup, DefinitionGroups } from "./definition.js";
+import { Associativity, RecurseMask, Recursiveness, createDefinition } from "./definition.js";
+import type { List, Node, Text } from "./ast/ast.js";
+import { Grammar } from "./grammar.js";
 
 /** Build a grammar from an AST */
 export function buildGrammar(unit: Node): Grammar {
@@ -35,7 +35,7 @@ export function buildGrammar(unit: Node): Grammar {
 
 	// Second pass: Determine recursiveness and precedence
 	for (const [name, group] of Object.entries(groups)) {
-		determineRecursiveness(name, group, groups);
+		determineGroupRecursiveness(name, group, groups);
 	}
 
 	const whitespace = unit.attributes['whitespace'] as Text | undefined;
@@ -70,7 +70,7 @@ function buildDefinition(node: Node): Definition {
 	return definition;
 }
 
-function determineRecursiveness(name: string, group: DefinitionGroup, groups: DefinitionGroups): void {
+function determineGroupRecursiveness(name: string, group: DefinitionGroup, groups: DefinitionGroups): void {
 	const references = new Set<Node>();
 	const visited = new Set<string>();
 	let groupRecursiveness = Recursiveness.None;
@@ -216,7 +216,7 @@ function determineExpressionRecursiveness(
 		}
 
 		case 'reference': {
-			const name = (node.attributes['Name'] as Node).attributes['Value'] as Text;
+			const name = node.attributes['Name'] as Text;
 			if (name.value === rootName) {
 				references.add(node);
 				return mask | Recursiveness.IsExclusive;
