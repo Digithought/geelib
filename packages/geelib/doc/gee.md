@@ -5,7 +5,9 @@ Gee is a powerful grammar definition language that allows you to define parsers 
 Capabilities:
 * **Combined parser/lexer** - Whitespace is specified as a rule, and tokens can use double quoted (called "quotes") or single quotes (called "strings") to indicate whitespace-sensitivity
 * **AST inference** - Gee can infer the AST structure from the grammar rules
-* **Grammar optimization** - Gee can optimize grammars, to eliminate superfluous rules and push up common sub-patterns
+* **Recursive definitions** - Definitions can reference themselves
+* **Declarative precedence and associativity** - Recursive definitions can explicitly specify precedence and associativity
+* **Grammar optimization** - Gee can optimize grammars, to eliminate superfluous rules, push up common sub-patterns, and more
 
 ## Basic Structure
 
@@ -33,8 +35,8 @@ Statements :=
 The grammar header defines the grammar name and optional settings:
 
 - `grammar <Name>`: Defines the grammar name
-- `comparer: (sensitive | insensitive)`: Sets case sensitivity for string matching
-- `whitespace: <identifier>`: Specifies the whitespace handling rule
+- `comparer: (sensitive | insensitive)`: (default=sensitive) Sets case sensitivity for string matching
+- `whitespace: <identifier>`: (default="_" if it exists, otherwise nothing) Specifies the whitespace handling rule
 
 Example:
 ```gee

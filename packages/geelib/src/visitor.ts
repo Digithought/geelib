@@ -8,7 +8,7 @@ export interface VisitorContext {
 
 export interface VisitorRule {
   name: string;
-  nodeType?: string;
+  nodeType?: string | string[];
   visit(node: Node, context: VisitorContext): Node | null;
 }
 
@@ -18,12 +18,15 @@ export class NodeVisitor {
 
   addRule(rule: VisitorRule): void {
     if (rule.nodeType) {
-      let rules = this.typeRules.get(rule.nodeType);
-      if (!rules) {
-        rules = [];
-        this.typeRules.set(rule.nodeType, rules);
+      const types = Array.isArray(rule.nodeType) ? rule.nodeType : [rule.nodeType];
+      for (const type of types) {
+        let rules = this.typeRules.get(type);
+        if (!rules) {
+          rules = [];
+          this.typeRules.set(type, rules);
+        }
+        rules.push(rule);
       }
-      rules.push(rule);
     } else {
       this.globalRules.push(rule);
     }

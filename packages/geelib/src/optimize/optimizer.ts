@@ -5,7 +5,7 @@ import type { Definition } from '../definition.js';
 import { NodeVisitor } from '../visitor.js';
 import { QuoteExpander } from './quote-expander.js';
 import { CaptureSimplifier } from './capture-simplifier.js';
-import { SequenceFlattener } from './sequence-flattener.js';
+import { SequenceFlattener, GroupFlattener } from './sequence-flattener.js';
 import { OrFlattener } from './or-flattener.js';
 import { OptionalGroupSimplifier } from './optional-group-simplifier.js';
 import { GroupSimplifier } from './group-simplifier.js';
@@ -45,8 +45,9 @@ export function optimize(grammar: Grammar): OptimizedGrammar {
 	visitor.addRule(new GroupSimplifier());
 	visitor.addRule(new OptionalGroupSimplifier());
 	visitor.addRule(new OrFlattener());
-	visitor.addRule(new SequenceFlattener());
 	visitor.addRule(new CaptureSimplifier());
+	visitor.addRule(new GroupFlattener());
+	visitor.addRule(new SequenceFlattener());
 
 	// First pass: Canonicalize and optimize
 	for (const [groupName, group] of Object.entries(context.originals)) {
@@ -91,10 +92,13 @@ export function optimize(grammar: Grammar): OptimizedGrammar {
 		for (const definition of group.definitions) {
 			if (performPushUps) {
 				const sequence = definition.instance.attributes['Sequence'] as List;
-				context.referenceReplacements.set(
-					definition.name,
-					computePushUps(context, definition.name, sequence)
-				);
+				// Only compute push-ups if there are no optional nodes
+				if (!sequence.items.some(item => isNode(item) && item.type === 'optional')) {
+					context.referenceReplacements.set(
+						definition.name,
+						computePushUps(context, definition.name, sequence)
+					);
+				}
 			}
 			optimizedDefinitions.push(definition);
 		}
@@ -120,7 +124,7 @@ function computePushUps(context: OptimizerContext, definitionName: string, seque
 	let i = 0;
 	for (; i < sequence.items.length; i++) {
 		const expression = sequence.items[i] as Node;
-		if (containsDeclaration(expression)) break;
+		if (containsDeclaration(expression) || expression.type === 'optional') break;
 		pushedUp.push(expression);
 	}
 

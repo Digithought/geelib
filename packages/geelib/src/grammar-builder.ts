@@ -38,6 +38,9 @@ export function buildGrammar(unit: Node): Grammar {
 		determineGroupRecursiveness(name, group, groups);
 	}
 
+	// Third pass: Validate recursiveness
+	validateRecursiveness(groups);
+
 	const whitespace = unit.attributes['whitespace'] as Text | undefined;
 	if (whitespace && !Object.hasOwn(groups, whitespace.value)) {
 		throw new Error(`Whitespace rule ${whitespace.value} not found in grammar`);
@@ -71,40 +74,67 @@ function buildDefinition(node: Node): Definition {
 }
 
 function determineGroupRecursiveness(name: string, group: DefinitionGroup, groups: DefinitionGroups): void {
-	const references = new Set<Node>();
-	const visited = new Set<string>();
-	let groupRecursiveness = Recursiveness.None;
+	// Initialize group recursiveness
+	group.recursiveness = Recursiveness.None;
+	group.referenceMinPrecedents = new Map<Node, number>();
 
 	// Determine recursiveness for each definition in the group
 	for (const definition of group.definitions) {
-		const sequence = definition.instance.attributes['Sequence'] as List;
-		const recursiveness = determineSequenceRecursiveness(name, sequence, groups, visited, references);
+		// Determine recursiveness for this definition
+		const references = determineDefinitionRecursiveness(name, definition, groups);
 
-		// Store recursiveness state
-		definition.recursiveness = recursiveness;
-		groupRecursiveness |= recursiveness;
+		// Update group recursiveness
+		group.recursiveness! |= definition.recursiveness!;
 
-		// Validate recursiveness based on precedence
-		if (definition.precedence === Number.MAX_SAFE_INTEGER) {
-			if ((recursiveness & (Recursiveness.Left | Recursiveness.Right | Recursiveness.Full)) !== Recursiveness.None) {
-				throw new Error(`Invalid grammar for definition ${name}. Recursive definitions must be given explicit precedence.`);
-			}
-		} else {
-			if ((recursiveness & (Recursiveness.Left | Recursiveness.Right | Recursiveness.Full)) === Recursiveness.None) {
-				throw new Error(`Invalid grammar for definition ${name} (precedence ${definition.precedence}). Only recursive definitions may be in an explicit precedence definition.`);
-			}
-		}
-
-		// Update group's reference min precedents
+		// Add to the list of incoming recursive reference list with the appropriate minimum precedence
 		for (const reference of Array.from(references)) {
 			if (!group.referenceMinPrecedents.has(reference)) {
 				group.referenceMinPrecedents.set(reference, adjustedMinPrecedence(definition, group.definitions));
 			}
 		}
 	}
+}
 
-	// Store group recursiveness state
-	group.recursiveness = groupRecursiveness;
+/**
+ * Determines the recursiveness of a single definition
+ * @returns A set of references found during recursiveness determination
+ */
+function determineDefinitionRecursiveness(rootName: string, definition: Definition, groups: DefinitionGroups): Set<Node> {
+	const sequence = definition.instance.attributes['Sequence'] as List;
+	const visited = new Set<string>();
+	const references = new Set<Node>();
+
+	// Determine recursiveness for this definition
+	const recursiveness = determineSequenceRecursiveness(rootName, sequence, groups, visited, references);
+
+	// Store recursiveness state
+	definition.recursiveness = recursiveness;
+
+	return references;
+}
+
+/**
+ * Validates the recursiveness of all definitions in all groups
+ */
+function validateRecursiveness(groups: DefinitionGroups): void {
+	for (const [groupName, group] of Object.entries(groups)) {
+		for (const definition of group.definitions) {
+			// Validate recursiveness based on precedence
+			if (definition.precedence === Number.MAX_SAFE_INTEGER) {
+				if ((definition.recursiveness! & (Recursiveness.Left | Recursiveness.Right | Recursiveness.Full)) !== Recursiveness.None) {
+					throw new Error(`Invalid grammar for definition ${groupName}. Recursive definitions must be given explicit precedence.`);
+				}
+			} else {
+				// Check if this definition is part of a group where any definition is recursive
+				const isGroupRecursive = (group.recursiveness! & (Recursiveness.Left | Recursiveness.Right | Recursiveness.Full)) !== Recursiveness.None;
+
+				// Only throw an error if the group is not recursive at all
+				if (!isGroupRecursive) {
+					throw new Error(`Invalid grammar for definition ${groupName} (precedence ${definition.precedence}). Only recursive definitions may be in an explicit precedence definition.`);
+				}
+			}
+		}
+	}
 }
 
 function determineSequenceRecursiveness(
