@@ -1,5 +1,5 @@
 import type { Node, List, Item, Text } from "../ast/ast.js";
-import { isNode, isList } from "../ast/ast-helpers.js";
+import { isNode, isList } from "../ast/ast.js";
 import type { DefinitionGroups } from '../definition.js';
 import type { Definition } from '../definition.js';
 import { NodeVisitor } from '../visitor.js';
@@ -7,7 +7,7 @@ import { QuoteExpander } from './quote-expander.js';
 import { CaptureSimplifier } from './capture-simplifier.js';
 import { SequenceFlattener, GroupFlattener } from './sequence-flattener.js';
 import { OrFlattener } from './or-flattener.js';
-import { OptionalGroupSimplifier } from './optional-group-simplifier.js';
+import { OptionalSimplifier } from './optional-group-simplifier.js';
 import { GroupSimplifier } from './group-simplifier.js';
 import { Grammar, OptimizedGrammar } from '../grammar.js';
 import type { GrammarOptions } from '../grammar.js';
@@ -43,7 +43,7 @@ export function optimize(grammar: Grammar): OptimizedGrammar {
 	const visitor = new NodeVisitor();
 	visitor.addRule(new QuoteExpander());
 	visitor.addRule(new GroupSimplifier());
-	visitor.addRule(new OptionalGroupSimplifier());
+	visitor.addRule(new OptionalSimplifier());
 	visitor.addRule(new OrFlattener());
 	visitor.addRule(new CaptureSimplifier());
 	visitor.addRule(new GroupFlattener());

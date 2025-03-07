@@ -4,7 +4,7 @@ import { Grammar } from '../src/grammar.js';
 import { node, text, list } from '../src/ast/ast.js';
 import type { Node, Text, List } from '../src/ast/ast.js';
 import { buildGrammar } from '../src/grammar-builder.js';
-import { isNode, isList } from '../src/ast/ast-helpers.js';
+import { isNode, isList } from "../src/ast/ast.js";
 
 describe('Optimizer', () => {
   describe('optimize()', () => {

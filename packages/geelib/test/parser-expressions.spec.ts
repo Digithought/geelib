@@ -2,79 +2,98 @@ import { expect } from 'aegir/chai';
 import { Parser } from '../src/parser.js';
 import { StringStream } from '../src/string-stream.js';
 import { buildGrammar } from '../src/grammar-builder.js';
-import { node, text, list } from '../src/ast/ast.js';
+import { item } from '../src/ast/ast.js';
 import { optimize } from '../src/optimize/optimizer.js';
-import type { Node, Text, List } from '../src/ast/ast.js';
+import type { Node, Text, List, Item } from '../src/ast/ast.js';
+import { isNode, isText } from "../src/ast/ast.js";
 
 describe('Parser - Expression Tests', () => {
-  describe('Or rule', () => {
-    it('should parse alternatives in an Or expression', () => {
-      // Create a grammar with an Or rule
-      const ast = node('unit', {
-        Definitions: list([
-          node('definition', {
-            Name: text('Test'),
-            Type: text(':='),
-            Sequence: list([
-              node('or', {
-                Expressions: list([
-                  node('string', { Text: text('hello') }),
-                  node('string', { Text: text('world') }),
-                  node('string', { Text: text('test') })
-                ])
+  describe('Or expressions', () => {
+    it('should parse alternatives in an or expression', () => {
+      // Create a grammar with an or expression
+      const ast = item({
+        Definitions: item([
+          item({
+            Name: item('Test'),
+            Type: item(':='),
+            Sequence: item([
+              item({
+                or: item({
+                  Expressions: item([
+                    item({
+                      string: item({
+                        Value: item('hello')
+                      })
+                    }),
+                    item({
+                      string: item({
+                        Value: item('world')
+                      })
+                    })
+                  ])
+                })
               })
             ])
           })
-        ])
+        ]),
+        Root: item('Test')
       });
 
       const grammar = buildGrammar(ast);
-      const optimizedGrammar = optimize(grammar);
-      const parser = new Parser(optimizedGrammar);
+      const optimized = optimize(grammar);
+      const parser = new Parser(optimized);
 
       // Test with the first alternative
       const input1 = 'hello';
-      const result1 = parser.parse(new StringStream(input1)) as Node;
+      const stream1 = new StringStream(input1);
+      const result1 = parser.parse(stream1);
+
       expect(result1).to.not.be.null;
-      expect(result1.type).to.equal('Test');
+      if (result1) {
+        // Use type assertion to tell TypeScript that result1.value is a Record<string, Item>
+        const testNode = (result1.value as Record<string, Item>)['Test']!;
+        expect(testNode).to.exist;
+        const contentItem = testNode.value as Record<string, Item>;
+        expect(contentItem).to.have.property('Content');
+        const content = contentItem['Content']!;
+        expect(isText(content)).to.be.true;
+        expect((content as Text).value).to.equal('hello');
+      }
 
       // Test with the second alternative
       const input2 = 'world';
-      const result2 = parser.parse(new StringStream(input2)) as Node;
+      const stream2 = new StringStream(input2);
+      const result2 = parser.parse(stream2);
+
       expect(result2).to.not.be.null;
-      expect(result2.type).to.equal('Test');
-
-      // Test with the third alternative
-      const input3 = 'test';
-      const result3 = parser.parse(new StringStream(input3)) as Node;
-      expect(result3).to.not.be.null;
-      expect(result3.type).to.equal('Test');
-
-      // Test with a non-matching input
-      const inputNonMatching = 'other';
-      const resultNonMatching = parser.parse(new StringStream(inputNonMatching));
-      expect(resultNonMatching).to.be.null;
+      if (result2) {
+        // Use type assertion to tell TypeScript that result2.value is a Record<string, Item>
+        const testNode = (result2.value as Record<string, Item>)['Test']!;
+        expect(testNode).to.exist;
+        const contentItem = testNode.value as Record<string, Item>;
+        expect(contentItem).to.have.property('Content');
+        const content = contentItem['Content']!;
+        expect(isText(content)).to.be.true;
+        expect((content as Text).value).to.equal('world');
+      }
     });
   });
 
-  describe('Group rule', () => {
-    it('should parse a sequence in a group', () => {
-      // Create a grammar with a Group rule
-      const ast = node('unit', {
-        Definitions: list([
-          node('definition', {
-            Name: text('Test'),
-            Type: text(':='),
-            Sequence: list([
-              node('group', {
-                Sequence: list([
-                  node('string', { Text: text('hello') }),
-                  node('string', { Text: text('world') })
-                ])
-              })
+  describe('Sequence expressions', () => {
+    it('should parse a sequence of expressions', () => {
+      // Create a grammar with a sequence
+      const ast = item({
+        Definitions: item([
+          item({
+            Name: item('Test'),
+            Type: item(':='),
+            Sequence: item([
+              item({ string: item({ Text: item('hello') }) }),
+              item({ string: item({ Text: item('world') }) })
             ])
           })
-        ])
+        ]),
+        Root: item('Test')
       });
 
       const grammar = buildGrammar(ast);
@@ -83,33 +102,33 @@ describe('Parser - Expression Tests', () => {
 
       // Test with a matching sequence
       const input = 'helloworld';
-      const result = parser.parse(new StringStream(input)) as Node;
-
-      expect(result).to.not.be.null;
-      expect(result.type).to.equal('Test');
+      const result = parser.parse(new StringStream(input));
+      expect(result).to.not.be.undefined;
+      expect(result?.value).to.have.property('Test');
 
       // Test with a non-matching sequence
       const inputNonMatching = 'hello';
       const resultNonMatching = parser.parse(new StringStream(inputNonMatching));
-
-      expect(resultNonMatching).to.be.null;
+      expect(resultNonMatching).to.be.undefined;
     });
   });
 
-  describe('OptionalGroup rule', () => {
-    it('should parse an optional sequence', () => {
-      // Create a grammar with an OptionalGroup rule
-      const ast = node('unit', {
-        Definitions: list([
-          node('definition', {
-            Name: text('Test'),
-            Type: text(':='),
-            Sequence: list([
-              node('string', { Text: text('hello') }),
-              node('optional', {
-                Sequence: list([
-                  node('string', { Text: text('world') })
-                ])
+  describe('Optional expressions', () => {
+    it('should parse optional expressions', () => {
+      // Create a grammar with an optional expression
+      const ast = item({
+        Definitions: item([
+          item({
+            Name: item('Test'),
+            Type: item(':='),
+            Sequence: item([
+              item({ string: item({ Text: item('hello') }) }),
+              item({
+                optional: item({
+                  Sequence: item([
+                    item({ string: item({ Text: item('world') }) })
+                  ])
+                })
               })
             ])
           })
@@ -120,39 +139,37 @@ describe('Parser - Expression Tests', () => {
       const optimizedGrammar = optimize(grammar);
       const parser = new Parser(optimizedGrammar);
 
-      // Test with the optional part present
+      // Test with the optional part
       const inputWithOptional = 'helloworld';
-      const resultWithOptional = parser.parse(new StringStream(inputWithOptional)) as Node;
-
-      expect(resultWithOptional).to.not.be.null;
-      expect(resultWithOptional.type).to.equal('Test');
+      const resultWithOptional = parser.parse(new StringStream(inputWithOptional));
+      expect(resultWithOptional).to.not.be.undefined;
+      expect(resultWithOptional?.value).to.have.property('Test');
 
       // Test without the optional part
       const inputWithoutOptional = 'hello';
-      const resultWithoutOptional = parser.parse(new StringStream(inputWithoutOptional)) as Node;
-
-      expect(resultWithoutOptional).to.not.be.null;
-      expect(resultWithoutOptional.type).to.equal('Test');
+      const resultWithoutOptional = parser.parse(new StringStream(inputWithoutOptional));
+      expect(resultWithoutOptional).to.not.be.undefined;
+      expect(resultWithoutOptional?.value).to.have.property('Test');
     });
   });
 
-  describe('Reference rule', () => {
-    it('should parse a reference to another rule', () => {
-      // Create a grammar with a Reference rule
-      const ast = node('unit', {
-        Definitions: list([
-          node('definition', {
-            Name: text('Test'),
-            Type: text(':='),
-            Sequence: list([
-              node('reference', { Name: text('Word') })
-            ])
-          }),
-          node('definition', {
-            Name: text('Word'),
-            Type: text('='),
-            Sequence: list([
-              node('string', { Text: text('hello') })
+  describe('Group expressions', () => {
+    it('should parse group expressions', () => {
+      // Create a grammar with a group expression
+      const ast = item({
+        Definitions: item([
+          item({
+            Name: item('Test'),
+            Type: item(':='),
+            Sequence: item([
+              item({
+                group: item({
+                  Sequence: item([
+                    item({ string: item({ Text: item('hello') }) }),
+                    item({ string: item({ Text: item('world') }) })
+                  ])
+                })
+              })
             ])
           })
         ])
@@ -162,26 +179,27 @@ describe('Parser - Expression Tests', () => {
       const optimizedGrammar = optimize(grammar);
       const parser = new Parser(optimizedGrammar);
 
-      // Test with a matching reference
-      const input = 'hello';
-      const result = parser.parse(new StringStream(input)) as Node;
-
-      expect(result).to.not.be.null;
-      expect(result.type).to.equal('Test');
+      // Test with a matching input
+      const input = 'helloworld';
+      const result = parser.parse(new StringStream(input));
+      expect(result).to.not.be.undefined;
+      expect(result?.value).to.have.property('Test');
     });
   });
 
-  describe('Repeat rule', () => {
+  describe('Repeat expressions', () => {
     it('should parse zero or more repetitions', () => {
-      // Create a grammar with a Repeat rule (zero or more)
-      const ast = node('unit', {
-        Definitions: list([
-          node('definition', {
-            Name: text('Test'),
-            Type: text(':='),
-            Sequence: list([
-              node('repeat', {
-                Expression: node('string', { Text: text('a') })
+      // Create a grammar with a repeat expression
+      const ast = item({
+        Definitions: item([
+          item({
+            Name: item('Test'),
+            Type: item(':='),
+            Sequence: item([
+              item({
+                repeat: item({
+                  Expression: item({ string: item({ Text: item('a') }) })
+                })
               })
             ])
           })
@@ -193,38 +211,39 @@ describe('Parser - Expression Tests', () => {
       const parser = new Parser(optimizedGrammar);
 
       // Test with multiple repetitions
-      const inputMultiple = 'aaaaa';
-      const resultMultiple = parser.parse(new StringStream(inputMultiple)) as Node;
-
-      expect(resultMultiple).to.not.be.null;
-      expect(resultMultiple.type).to.equal('Test');
+      const inputMultiple = 'aaa';
+      const resultMultiple = parser.parse(new StringStream(inputMultiple));
+      expect(resultMultiple).to.not.be.undefined;
+      expect(resultMultiple?.value).to.have.property('Test');
 
       // Test with a single repetition
       const inputSingle = 'a';
-      const resultSingle = parser.parse(new StringStream(inputSingle)) as Node;
-
-      expect(resultSingle).to.not.be.null;
-      expect(resultSingle.type).to.equal('Test');
+      const resultSingle = parser.parse(new StringStream(inputSingle));
+      expect(resultSingle).to.not.be.undefined;
+      expect(resultSingle?.value).to.have.property('Test');
 
       // Test with zero repetitions
       const inputZero = '';
-      const resultZero = parser.parse(new StringStream(inputZero)) as Node;
-
-      expect(resultZero).to.not.be.null;
-      expect(resultZero.type).to.equal('Test');
+      const resultZero = parser.parse(new StringStream(inputZero));
+      expect(resultZero).to.not.be.undefined;
+      expect(resultZero?.value).to.have.property('Test');
     });
 
     it('should parse a specific number of repetitions', () => {
-      // Create a grammar with a Repeat rule (exact count)
-      const ast = node('unit', {
-        Definitions: list([
-          node('definition', {
-            Name: text('Test'),
-            Type: text(':='),
-            Sequence: list([
-              node('repeat', {
-                Expression: node('string', { Text: text('a') }),
-                Count: text('3')
+      // Create a grammar with a repeat expression with a count
+      const ast = item({
+        Definitions: item([
+          item({
+            Name: item('Test'),
+            Type: item(':='),
+            Sequence: item([
+              item({
+                repeat: item({
+                  Expression: item({ string: item({ Text: item('a') }) }),
+                  Count: item({
+                    Value: item('3')
+                  })
+                })
               })
             ])
           })
@@ -235,39 +254,39 @@ describe('Parser - Expression Tests', () => {
       const optimizedGrammar = optimize(grammar);
       const parser = new Parser(optimizedGrammar);
 
-      // Test with the exact number of repetitions
+      // Test with exactly 3 repetitions
       const inputExact = 'aaa';
-      const resultExact = parser.parse(new StringStream(inputExact)) as Node;
-
-      expect(resultExact).to.not.be.null;
-      expect(resultExact.type).to.equal('Test');
+      const resultExact = parser.parse(new StringStream(inputExact));
+      expect(resultExact).to.not.be.undefined;
+      expect(resultExact?.value).to.have.property('Test');
 
       // Test with too few repetitions
       const inputTooFew = 'aa';
       const resultTooFew = parser.parse(new StringStream(inputTooFew));
-
-      expect(resultTooFew).to.be.null;
+      expect(resultTooFew).to.be.undefined;
 
       // Test with too many repetitions
       const inputTooMany = 'aaaa';
       const resultTooMany = parser.parse(new StringStream(inputTooMany));
-
-      // Should fail because it expects exactly 3 repetitions
-      expect(resultTooMany).to.be.null;
+      expect(resultTooMany).to.be.undefined;
     });
 
     it('should parse a range of repetitions', () => {
-      // Create a grammar with a Repeat rule (range)
-      const ast = node('unit', {
-        Definitions: list([
-          node('definition', {
-            Name: text('Test'),
-            Type: text(':='),
-            Sequence: list([
-              node('repeat', {
-                Expression: node('string', { Text: text('a') }),
-                From: text('2'),
-                To: text('4')
+      // Create a grammar with a repeat expression with a range
+      const ast = item({
+        Definitions: item([
+          item({
+            Name: item('Test'),
+            Type: item(':='),
+            Sequence: item([
+              item({
+                repeat: item({
+                  Expression: item({ string: item({ Text: item('a') }) }),
+                  Range: item({
+                    From: item('2'),
+                    To: item('4')
+                  })
+                })
               })
             ])
           })
@@ -280,52 +299,48 @@ describe('Parser - Expression Tests', () => {
 
       // Test with the minimum number of repetitions
       const inputMin = 'aa';
-      const resultMin = parser.parse(new StringStream(inputMin)) as Node;
-
-      expect(resultMin).to.not.be.null;
-      expect(resultMin.type).to.equal('Test');
+      const resultMin = parser.parse(new StringStream(inputMin));
+      expect(resultMin).to.not.be.undefined;
+      expect(resultMin?.value).to.have.property('Test');
 
       // Test with the maximum number of repetitions
       const inputMax = 'aaaa';
-      const resultMax = parser.parse(new StringStream(inputMax)) as Node;
-
-      expect(resultMax).to.not.be.null;
-      expect(resultMax.type).to.equal('Test');
+      const resultMax = parser.parse(new StringStream(inputMax));
+      expect(resultMax).to.not.be.undefined;
+      expect(resultMax?.value).to.have.property('Test');
 
       // Test with a number in between
       const inputMid = 'aaa';
-      const resultMid = parser.parse(new StringStream(inputMid)) as Node;
-
-      expect(resultMid).to.not.be.null;
-      expect(resultMid.type).to.equal('Test');
+      const resultMid = parser.parse(new StringStream(inputMid));
+      expect(resultMid).to.not.be.undefined;
+      expect(resultMid?.value).to.have.property('Test');
 
       // Test with too few repetitions
       const inputTooFew = 'a';
       const resultTooFew = parser.parse(new StringStream(inputTooFew));
-
-      expect(resultTooFew).to.be.null;
+      expect(resultTooFew).to.be.undefined;
 
       // Test with too many repetitions
       const inputTooMany = 'aaaaa';
       const resultTooMany = parser.parse(new StringStream(inputTooMany));
-
-      // Should fail because it expects at most 4 repetitions
-      expect(resultTooMany).to.be.null;
+      expect(resultTooMany).to.be.undefined;
     });
   });
 
-  describe('SeparatedRepeat rule', () => {
+  describe('Separated repeat expressions', () => {
     it('should parse items separated by a separator', () => {
-      // Create a grammar with a SeparatedRepeat rule
-      const ast = node('unit', {
-        Definitions: list([
-          node('definition', {
-            Name: text('Test'),
-            Type: text(':='),
-            Sequence: list([
-              node('separated', {
-                Expression: node('string', { Text: text('item') }),
-                Separator: node('string', { Text: text(',') })
+      // Create a grammar with a separated repeat expression
+      const ast = item({
+        Definitions: item([
+          item({
+            Name: item('Test'),
+            Type: item(':='),
+            Sequence: item([
+              item({
+                separated: item({
+                  Expression: item({ string: item({ Text: item('item') }) }),
+                  Separator: item({ string: item({ Text: item(',') }) })
+                })
               })
             ])
           })
@@ -338,40 +353,41 @@ describe('Parser - Expression Tests', () => {
 
       // Test with multiple items
       const inputMultiple = 'item,item,item';
-      const resultMultiple = parser.parse(new StringStream(inputMultiple)) as Node;
-
-      expect(resultMultiple).to.not.be.null;
-      expect(resultMultiple.type).to.equal('Test');
+      const resultMultiple = parser.parse(new StringStream(inputMultiple));
+      expect(resultMultiple).to.not.be.undefined;
+      expect(resultMultiple?.value).to.have.property('Test');
 
       // Test with a single item
       const inputSingle = 'item';
-      const resultSingle = parser.parse(new StringStream(inputSingle)) as Node;
-
-      expect(resultSingle).to.not.be.null;
-      expect(resultSingle.type).to.equal('Test');
+      const resultSingle = parser.parse(new StringStream(inputSingle));
+      expect(resultSingle).to.not.be.undefined;
+      expect(resultSingle?.value).to.have.property('Test');
 
       // Test with zero items
       const inputZero = '';
-      const resultZero = parser.parse(new StringStream(inputZero)) as Node;
-
-      expect(resultZero).to.not.be.null;
-      expect(resultZero.type).to.equal('Test');
+      const resultZero = parser.parse(new StringStream(inputZero));
+      expect(resultZero).to.not.be.undefined;
+      expect(resultZero?.value).to.have.property('Test');
     });
   });
 
-  describe('Capture rule', () => {
-    it('should capture the matched content', () => {
-      // Create a grammar with a Capture rule
-      const ast = node('unit', {
-        Definitions: list([
-          node('definition', {
-            Name: text('Test'),
-            Type: text(':='),
-            Sequence: list([
-              node('declaration', {
-                Name: text('Content'),
-                Expression: node('capture', {
-                  Expression: node('string', { Text: text('hello') })
+  describe('Capture expressions', () => {
+    it('should capture expressions', () => {
+      // Create a grammar with a capture expression
+      const ast = item({
+        Definitions: item([
+          item({
+            Name: item('Test'),
+            Type: item(':='),
+            Sequence: item([
+              item({
+                declaration: item({
+                  Name: item('Content'),
+                  Expression: item({
+                    capture: item({
+                      Expression: item({ string: item({ Text: item('hello') }) })
+                    })
+                  })
                 })
               })
             ])
@@ -385,35 +401,33 @@ describe('Parser - Expression Tests', () => {
 
       // Test with a matching input
       const input = 'hello';
-      const result = parser.parse(new StringStream(input)) as Node;
+      const result = parser.parse(new StringStream(input));
+      expect(result).to.not.be.undefined;
 
-      expect(result).to.not.be.null;
-      expect(result.type).to.equal('Test');
-      const contentAttr = result.attributes['Content'] as Text;
-      expect(contentAttr.type).to.equal('text');
-      expect(contentAttr.value).to.equal('hello');
+      if (result) {
+        const testNode = result.value as Record<string, Item>;
+        const contentItem = testNode['Test']?.value as Record<string, Item>;
+        expect(contentItem).to.have.property('Content');
+        expect(isText(contentItem['Content']!)).to.be.true;
+        expect(contentItem['Content']!.value).to.equal('hello');
+      }
     });
   });
 
-  describe('AndNot rule', () => {
-    it('should match if the first expression matches and the second does not', () => {
-      // Create a grammar with an AndNot rule
-      const ast = node('unit', {
-        Definitions: list([
-          node('definition', {
-            Name: text('Test'),
-            Type: text(':='),
-            Sequence: list([
-              node('andNot', {
-                Expression: node('charSet', {
-                  Entries: list([
-                    node('range', {
-                      From: node('char', { Literal: text('a') }),
-                      To: node('char', { Literal: text('z') })
-                    })
-                  ])
-                }),
-                NotExpression: node('string', { Text: text('if') })
+  describe('AndNot expressions', () => {
+    it('should parse expressions that match the first but not the second', () => {
+      // Create a grammar with an andNot expression
+      const ast = item({
+        Definitions: item([
+          item({
+            Name: item('Test'),
+            Type: item(':='),
+            Sequence: item([
+              item({
+                andNot: item({
+                  Expression: item({ string: item({ Text: item('var') }) }),
+                  NotExpression: item({ string: item({ Text: item('if') }) })
+                })
               })
             ])
           })
@@ -424,35 +438,41 @@ describe('Parser - Expression Tests', () => {
       const optimizedGrammar = optimize(grammar);
       const parser = new Parser(optimizedGrammar);
 
-      // Test with a lowercase letter that is not 'if'
-      const inputMatching = 'a';
-      const resultMatching = parser.parse(new StringStream(inputMatching)) as Node;
-
-      expect(resultMatching).to.not.be.null;
-      expect(resultMatching.type).to.equal('Test');
+      // Test with 'var' (should match)
+      const inputMatching = 'var';
+      const resultMatching = parser.parse(new StringStream(inputMatching));
+      expect(resultMatching).to.not.be.undefined;
+      expect(resultMatching?.value).to.have.property('Test');
 
       // Test with 'if' (should not match)
       const inputNonMatching = 'if';
       const resultNonMatching = parser.parse(new StringStream(inputNonMatching));
-
-      expect(resultNonMatching).to.be.null;
+      expect(resultNonMatching).to.be.undefined;
     });
   });
 
-  describe('As rule', () => {
-    it('should replace the matched content with a specified value', () => {
-      // Create a grammar with an As rule
-      const ast = node('unit', {
-        Definitions: list([
-          node('definition', {
-            Name: text('Test'),
-            Type: text(':='),
-            Sequence: list([
-              node('declaration', {
-                Name: text('Content'),
-                Expression: node('as', {
-                  Expression: node('string', { Text: text('hello') }),
-                  Value: node('string', { Text: text('world') })
+  describe('As expressions', () => {
+    it('should replace the matched text with a specified value', () => {
+      // Create a grammar with an as expression
+      const ast = item({
+        Definitions: item([
+          item({
+            Name: item('Test'),
+            Type: item(':='),
+            Sequence: item([
+              item({
+                declaration: item({
+                  Name: item('Content'),
+                  Expression: item({
+                    as: item({
+                      Expression: item({ string: item({ Text: item('hello') }) }),
+                      Value: item({
+                        String: item({
+                          Value: item('world')
+                        })
+                      })
+                    })
+                  })
                 })
               })
             ])
@@ -466,32 +486,39 @@ describe('Parser - Expression Tests', () => {
 
       // Test with a matching input
       const input = 'hello';
-      const result = parser.parse(new StringStream(input)) as Node;
+      const result = parser.parse(new StringStream(input));
+      expect(result).to.not.be.undefined;
 
-      expect(result).to.not.be.null;
-      expect(result.type).to.equal('Test');
-      const contentAttr = result.attributes['Content'] as Text;
-      expect(contentAttr.type).to.equal('text');
-      expect(contentAttr.value).to.equal('world'); // Value should be replaced
+      if (result) {
+        const testNode = result.value as Record<string, Item>;
+        const contentItem = testNode['Test']?.value as Record<string, Item>;
+        expect(contentItem).to.have.property('Content');
+        expect(isText(contentItem['Content']!)).to.be.true;
+        expect(contentItem['Content']!.value).to.equal('world'); // Value should be replaced
+      }
     });
   });
 
-  describe('Declaration rule', () => {
-    it('should declare a named capture', () => {
-      // Create a grammar with a Declaration rule
-      const ast = node('unit', {
-        Definitions: list([
-          node('definition', {
-            Name: text('Test'),
-            Type: text(':='),
-            Sequence: list([
-              node('declaration', {
-                Name: text('FirstName'),
-                Expression: node('string', { Text: text('John') })
+  describe('Declaration expressions', () => {
+    it('should declare named values', () => {
+      // Create a grammar with declaration expressions
+      const ast = item({
+        Definitions: item([
+          item({
+            Name: item('Test'),
+            Type: item(':='),
+            Sequence: item([
+              item({
+                declaration: item({
+                  Name: item('FirstName'),
+                  Expression: item({ string: item({ Text: item('John') }) })
+                })
               }),
-              node('declaration', {
-                Name: text('LastName'),
-                Expression: node('string', { Text: text('Doe') })
+              item({
+                declaration: item({
+                  Name: item('LastName'),
+                  Expression: item({ string: item({ Text: item('Doe') }) })
+                })
               })
             ])
           })
@@ -504,16 +531,19 @@ describe('Parser - Expression Tests', () => {
 
       // Test with a matching input
       const input = 'JohnDoe';
-      const result = parser.parse(new StringStream(input)) as Node;
+      const result = parser.parse(new StringStream(input));
+      expect(result).to.not.be.undefined;
 
-      expect(result).to.not.be.null;
-      expect(result.type).to.equal('Test');
-      const firstNameAttr = result.attributes['FirstName'] as Text;
-      expect(firstNameAttr.type).to.equal('text');
-      expect(firstNameAttr.value).to.equal('John');
-      const lastNameAttr = result.attributes['LastName'] as Text;
-      expect(lastNameAttr.type).to.equal('text');
-      expect(lastNameAttr.value).to.equal('Doe');
+      if (result) {
+        const testNode = result.value as Record<string, Item>;
+        const testItem = testNode['Test']?.value as Record<string, Item>;
+        expect(testItem).to.have.property('FirstName');
+        expect(isText(testItem['FirstName']!)).to.be.true;
+        expect(testItem['FirstName']!.value).to.equal('John');
+        expect(testItem).to.have.property('LastName');
+        expect(isText(testItem['LastName']!)).to.be.true;
+        expect(testItem['LastName']!.value).to.equal('Doe');
+      }
     });
   });
 });

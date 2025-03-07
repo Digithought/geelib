@@ -32,7 +32,7 @@ Sequence :=
 	expression*
 
 expression =
-	Range | Char | String | Quote | CharSet | Reference | Group | OptionalGroup
+	Range | Char | String | Quote | CharSet | Reference | Group | Optional
 
 expression 0 R =
 	Declaration
@@ -67,7 +67,7 @@ As :=
 Group :=
 	"(" Sequence ")"
 
-OptionalGroup :=
+Optional :=
 	"[" Sequence "]"
 
 Reference :=

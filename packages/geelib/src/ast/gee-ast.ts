@@ -1,735 +1,726 @@
-import { list, node, text } from "./ast.js";
+import { item } from "./ast.js";
 
-export const geeAst = node('unit', {
-	Name: text('Gee'),
-	Comparer: text('sensitive'),
-	Whitespace: text('_'),
-	Definitions: list([
-		node('definition', {
-			Name: text('Unit'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('optional', {
-							Sequence: list([
-								node('quote', { Text: text('grammar') })
-							])
-						}),
-						node('declaration', {
-							Name: text('Name'),
-							Expression: node('reference', { Name: text('identifier') })
-						}),
-						node('optional', {
-							Sequence: list([
-								node('quote', { Text: text('comparer') }),
-								node('quote', { Text: text(':') }),
-								node('declaration', {
-									Name: text('Comparer'),
-									Expression: node('or', {
-										Expressions: list([
-											node('quote', { Text: text('sensitive') }),
-											node('quote', { Text: text('insensitive') })
-										])
-									})
-								})
-							])
-						}),
-						node('optional', {
-							Sequence: list([
-								node('quote', { Text: text('whitespace') }),
-								node('quote', { Text: text(':') }),
-								node('declaration', {
-									Name: text('Whitespace'),
-									Expression: node('reference', { Name: text('identifier') })
-								})
-							])
-						})
-					])
+export const geeAst = item({ Unit: item({
+	Name: item('Gee'),
+	Comparer: item('sensitive'),
+	Whitespace: item('_'),
+	Definitions: item([
+		item({
+			Name: item('Unit'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Optional: item({ Sequence: item([
+						item({ Quote: item({ Text: item('grammar') }) }),
+						item({ Declaration: item({
+							Name: item('Name'),
+							Expression: item({ Reference: item({ Name: item('identifier') }) })
+						}) }),
+						item({ Optional: item({ Sequence: item([
+							item({ Quote: item({ Text: item('comparer') }) }),
+							item({ Quote: item({ Text: item(':') }) }),
+							item({ Declaration: item({
+								Name: item('Comparer'),
+								Expression: item({ Or: item({
+									Expressions: item([
+										item({ Quote: item({ Text: item('sensitive') }) }),
+										item({ Quote: item({ Text: item('insensitive') }) })
+									])
+								}) })
+							}) })
+						]) }) }),
+						item({ Optional: item({ Sequence: item([
+							item({ Quote: item({ Text: item('whitespace') }) }),
+							item({ Quote: item({ Text: item(':') }) }),
+							item({ Declaration: item({
+								Name: item('Whitespace'),
+								Expression: item({ Reference: item({ Name: item('identifier') }) })
+							}) })
+						]) }) })
+					]) })
 				}),
-				node('declaration', {
-					Name: text('Definitions'),
-					Expression: node('repeat', {
-						Expression: node('optional', {
-							Sequence: list([
-								node('reference', { Name: text('Definition') })
+				item({ Declaration: item({
+					Name: item('Definitions'),
+					Expression: item({ Repeat: item({
+						Expression: item({ Optional: item({
+							Sequence: item([
+								item({ Reference: item({ Name: item('Definition') }) })
 							])
-						})
-					})
-				})
+						}) })
+					}) })
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('Definition'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('declaration', {
-							Name: text('Name'),
-							Expression: node('reference', { Name: text('identifier') })
-						}),
-						node('optional', {
-							Sequence: list([
-								node('declaration', {
-									Name: text('Precedence'),
-									Expression: node('reference', { Name: text('integer') })
-								})
+		item({
+			Name: item('Definition'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Declaration: item({
+							Name: item('Name'),
+							Expression: item({ Reference: item({ Name: item('identifier') }) })
+						}) }),
+						item({ Optional: item({
+							Sequence: item([
+								item({ Declaration: item({
+									Name: item('Precedence'),
+									Expression: item({ Reference: item({ Name: item('integer') }) })
+								}) })
 							])
-						}),
-						node('optional', {
-							Sequence: list([
-								node('declaration', {
-									Name: text('Associativity'),
-									Expression: node('charSet', {
-										Entries: list([
-											node('quote', { Text: text('L') }),
-											node('quote', { Text: text('R') })
+						}) }),
+						item({ Optional: item({
+							Sequence: item([
+								item({ Declaration: item({
+									Name: item('Associativity'),
+									Expression: item({ CharSet: item({
+										Entries: item([
+											item({ Quote: item({ Text: item('L') }) }),
+											item({ Quote: item({ Text: item('R') }) })
 										])
-									})
-								})
+									}) })
+								}) })
 							])
-						}),
-						node('declaration', {
-							Name: text('Type'),
-							Expression: node('or', {
-								Expressions: list([
-									node('quote', { Text: text('=') }),
-									node('quote', { Text: text(':=') })
+						}) }),
+						item({ Declaration: item({
+							Name: item('Type'),
+							Expression: item({ Or: item({
+								Expressions: item([
+									item({ Quote: item({ Text: item('=') }) }),
+									item({ Quote: item({ Text: item(':=') }) })
 								])
-							})
-						}),
-						node('reference', { Name: text('Sequence') })
+							}) })
+						}) }),
+						item({ Reference: item({ Name: item('Sequence') }) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('Sequence'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('repeat', {
-							Expression: node('reference', { Name: text('expression') })
-						})
+		item({
+			Name: item('Sequence'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Repeat: item({
+							Expression: item({ Reference: item({ Name: item('expression') }) })
+						}) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('expression'),
-			Type: text('='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('or', {
-							Expressions: list([
-								node('reference', { Name: text('Range') }),
-								node('reference', { Name: text('Char') }),
-								node('reference', { Name: text('String') }),
-								node('reference', { Name: text('Quote') }),
-								node('reference', { Name: text('CharSet') }),
-								node('reference', { Name: text('Reference') }),
-								node('reference', { Name: text('Group') }),
-								node('reference', { Name: text('OptionalGroup') })
+		item({
+			Name: item('expression'),
+			Type: item('='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Or: item({
+							Expressions: item([
+								item({ Reference: item({ Name: item('Range') }) }),
+								item({ Reference: item({ Name: item('Char') }) }),
+								item({ Reference: item({ Name: item('String') }) }),
+								item({ Reference: item({ Name: item('Quote') }) }),
+								item({ Reference: item({ Name: item('CharSet') }) }),
+								item({ Reference: item({ Name: item('Reference') }) }),
+								item({ Reference: item({ Name: item('Group') }) }),
+								item({ Reference: item({ Name: item('Optional') }) })
 							])
-						})
+						}) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('expression'),
-			Type: text('='),
-			Precedence: text('0'),
-			Associativity: text('R'),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('reference', { Name: text('Declaration') })
+		item({
+			Name: item('expression'),
+			Type: item('='),
+			Precedence: item('0'),
+			Associativity: item('R'),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Reference: item({ Name: item('Declaration') }) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('expression'),
-			Type: text('='),
-			Precedence: text('0'),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('reference', { Name: text('Or') })
+		item({
+			Name: item('expression'),
+			Type: item('='),
+			Precedence: item('0'),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Reference: item({ Name: item('Or') }) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('expression'),
-			Type: text('='),
-			Precedence: text('1'),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('or', {
-							Expressions: list([
-								node('reference', { Name: text('Repeat') }),
-								node('reference', { Name: text('As') }),
-								node('reference', { Name: text('AndNot') }),
-								node('reference', { Name: text('SeparatedRepeat') }),
-								node('reference', { Name: text('Capture') })
+		item({
+			Name: item('expression'),
+			Type: item('='),
+			Precedence: item('1'),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Or: item({
+							Expressions: item([
+								item({ Reference: item({ Name: item('Repeat') }) }),
+								item({ Reference: item({ Name: item('As') }) }),
+								item({ Reference: item({ Name: item('AndNot') }) }),
+								item({ Reference: item({ Name: item('SeparatedRepeat') }) }),
+								item({ Reference: item({ Name: item('Capture') }) })
 							])
-						})
+						}) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('Declaration'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('declaration', {
-							Name: text('Name'),
-							Expression: node('reference', { Name: text('identifier') })
-						}),
-						node('quote', { Text: text(':') }),
-						node('declaration', {
-							Name: text('Expression'),
-							Expression: node('reference', { Name: text('expression') })
-						})
+		item({
+			Name: item('Declaration'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Declaration: item({
+							Name: item('Name'),
+							Expression: item({ Reference: item({ Name: item('identifier') }) })
+						}) }),
+						item({ Quote: item({ Text: item(':') }) }),
+						item({ Declaration: item({
+							Name: item('Expression'),
+							Expression: item({ Reference: item({ Name: item('expression') }) })
+						}) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('Or'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('declaration', {
-							Name: text('Expressions'),
-							Expression: node('separated', {
-								Expression: node('reference', { Name: text('expression') }),
-								Separator: node('quote', { Text: text('|') })
-							})
-						})
+		item({
+			Name: item('Or'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Declaration: item({
+							Name: item('Expressions'),
+							Expression: item({ SeparatedRepeat: item({
+								Expression: item({ Reference: item({ Name: item('expression') }) }),
+								Separator: item({ Quote: item({ Text: item('|') }) })
+							}) })
+						}) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('Repeat'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('declaration', {
-							Name: text('Expression'),
-							Expression: node('reference', { Name: text('expression') })
-						}),
-						node('quote', { Text: text('*') }),
-						node('optional', {
-							Sequence: list([
-								node('or', {
-									Expressions: list([
-										node('declaration', {
-											Name: text('Count'),
-											Expression: node('reference', { Name: text('integer') })
-										}),
-										node('group', {
-											Sequence: list([
-												node('declaration', {
-													Name: text('From'),
-													Expression: node('reference', { Name: text('integer') })
-												}),
-												node('quote', { Text: text('..') }),
-												node('declaration', {
-													Name: text('To'),
-													Expression: node('or', {
-														Expressions: list([
-															node('reference', { Name: text('integer') }),
-															node('quote', { Text: text('n') })
+		item({
+			Name: item('Repeat'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Declaration: item({
+							Name: item('Expression'),
+							Expression: item({ Reference: item({ Name: item('expression') }) })
+						}) }),
+						item({ Quote: item({ Text: item('*') }) }),
+						item({ Optional: item({
+							Sequence: item([
+								item({ Or: item({
+									Expressions: item([
+										item({ Declaration: item({
+											Name: item('Count'),
+											Expression: item({ Reference: item({ Name: item('integer') }) })
+										}) }),
+										item({ Group: item({
+											Sequence: item([
+												item({ Declaration: item({
+													Name: item('From'),
+													Expression: item({ Reference: item({ Name: item('integer') }) })
+												}) }),
+												item({ Quote: item({ Text: item('..') }) }),
+												item({ Declaration: item({
+													Name: item('To'),
+													Expression: item({ Or: item({
+														Expressions: item([
+															item({ Reference: item({ Name: item('integer') }) }),
+															item({ Quote: item({ Text: item('n') }) })
 														])
-													})
-												})
+													}) })
+												}) })
 											])
-										})
+										}) })
 									])
-								})
+								}) })
 							])
-						})
+						}) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('SeparatedRepeat'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('declaration', {
-							Name: text('Expression'),
-							Expression: node('reference', { Name: text('expression') })
-						}),
-						node('quote', { Text: text('^') }),
-						node('declaration', {
-							Name: text('Separator'),
-							Expression: node('reference', { Name: text('expression') })
-						})
+		item({
+			Name: item('SeparatedRepeat'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Declaration: item({
+							Name: item('Expression'),
+							Expression: item({ Reference: item({ Name: item('expression') }) })
+						}) }),
+						item({ Quote: item({ Text: item('^') }) }),
+						item({ Declaration: item({
+							Name: item('Separator'),
+							Expression: item({ Reference: item({ Name: item('expression') }) })
+						}) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('Capture'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('declaration', {
-							Name: text('Expression'),
-							Expression: node('reference', { Name: text('expression') })
-						}),
-						node('quote', { Text: text('+') })
+		item({
+			Name: item('Capture'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Declaration: item({
+							Name: item('Expression'),
+							Expression: item({ Reference: item({ Name: item('expression') }) })
+						}) }),
+						item({ Quote: item({ Text: item('+') }) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('AndNot'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('declaration', {
-							Name: text('Expression'),
-							Expression: node('reference', { Name: text('expression') })
-						}),
-						node('quote', { Text: text('&!') }),
-						node('declaration', {
-							Name: text('NotExpression'),
-							Expression: node('reference', { Name: text('expression') })
-						})
+		item({
+			Name: item('AndNot'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Declaration: item({
+							Name: item('Expression'),
+							Expression: item({ Reference: item({ Name: item('expression') }) })
+						}) }),
+						item({ Quote: item({ Text: item('&!') }) }),
+						item({ Declaration: item({
+							Name: item('NotExpression'),
+							Expression: item({ Reference: item({ Name: item('expression') }) })
+						}) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('As'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('declaration', {
-							Name: text('Expression'),
-							Expression: node('reference', { Name: text('expression') })
-						}),
-						node('quote', { Text: text('as') }),
-						node('declaration', {
-							Name: text('Value'),
-							Expression: node('reference', { Name: text('String') })
-						})
+		item({
+			Name: item('As'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Declaration: item({
+							Name: item('Expression'),
+							Expression: item({ Reference: item({ Name: item('expression') }) })
+						}) }),
+						item({ Quote: item({ Text: item('as') }) }),
+						item({ Declaration: item({
+							Name: item('Value'),
+							Expression: item({ Reference: item({ Name: item('String') }) })
+						}) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('Group'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('quote', { Text: text('(') }),
-						node('reference', { Name: text('Sequence') }),
-						node('quote', { Text: text(')') })
+		item({
+			Name: item('Group'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Quote: item({ Text: item('(') }) }),
+						item({ Reference: item({ Name: item('Sequence') }) }),
+						item({ Quote: item({ Text: item(')') }) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('OptionalGroup'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('quote', { Text: text('[') }),
-						node('reference', { Name: text('Sequence') }),
-						node('quote', { Text: text(']') })
+		item({
+			Name: item('Optional'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Quote: item({ Text: item('[') }) }),
+						item({ Reference: item({ Name: item('Sequence') }) }),
+						item({ Quote: item({ Text: item(']') }) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('Reference'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('optional', {
-							Sequence: list([
-								node('declaration', {
-									Name: text('GrammarName'),
-									Expression: node('reference', { Name: text('identifier') })
-								}),
-								node('quote', { Text: text('.') })
+		item({
+			Name: item('Reference'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Optional: item({
+							Sequence: item([
+								item({ Declaration: item({
+									Name: item('GrammarName'),
+									Expression: item({ Reference: item({ Name: item('identifier') }) })
+								}) }),
+								item({ Quote: item({ Text: item('.') }) })
 							])
-						}),
-						node('declaration', {
-							Name: text('Name'),
-							Expression: node('reference', { Name: text('identifier') })
-						}),
-						node('andNot', {
-							Expression: node('reference', { Name: text('identifier') }),
-							NotExpression: node('or', {
-								Expressions: list([
-									node('reference', { Name: text('Definition') }),
-									node('reference', { Name: text('Declaration') })
+						}) }),
+						item({ Declaration: item({
+							Name: item('Name'),
+							Expression: item({ Reference: item({ Name: item('identifier') }) })
+						}) }),
+						item({ AndNot: item({
+							Expression: item({ Reference: item({ Name: item('identifier') }) }),
+							NotExpression: item({ Or: item({
+								Expressions: item([
+									item({ Reference: item({ Name: item('Definition') }) }),
+									item({ Reference: item({ Name: item('Declaration') }) })
 								])
-							})
-						})
+							}) })
+						}) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('Quote'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('reference', { Name: text('_') }),
-						node('string', { Text: text('"') }),
-						node('declaration', {
-							Name: text('Text'),
-							Expression: node('repeat', {
-								Expression: node('or', {
-									Expressions: list([
-										node('as', {
-											Expression: node('string', { Text: text('""') }),
-											Value: node('string', { Text: text('"') })
-										}),
-										node('andNot', {
-											Expression: node('charSet', { All: text('true') }),
-											NotExpression: node('string', { Text: text('"') })
-										})
+		item({
+			Name: item('Quote'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Reference: item({ Name: item('_') }) }),
+						item({ String: item({ Text: item('"') }) }),
+						item({ Declaration: item({
+							Name: item('Text'),
+							Expression: item({ Repeat: item({
+								Expression: item({ Or: item({
+									Expressions: item([
+										item({ As: item({
+											Expression: item({ String: item({ Text: item('""') }) }),
+											Value: item({ String: item({ Text: item('"') }) })
+										}) }),
+										item({ AndNot: item({
+											Expression: item({ CharSet: item({ All: item('true') }) }),
+											NotExpression: item({ String: item({ Text: item('"') }) })
+										}) })
 									])
-								})
-							})
-						}),
-						node('string', { Text: text('"') }),
-						node('reference', { Name: text('_') })
+								}) })
+							}) })
+						}) }),
+						item({ String: item({ Text: item('"') }) }),
+						item({ Reference: item({ Name: item('_') }) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('String'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('reference', { Name: text('_') }),
-						node('string', { Text: text('\'') }),
-						node('declaration', {
-							Name: text('Text'),
-							Expression: node('repeat', {
-								Expression: node('or', {
-									Expressions: list([
-										node('as', {
-											Expression: node('string', { Text: text('\'\'') }),
-											Value: node('string', { Text: text('\'') })
-										}),
-										node('andNot', {
-											Expression: node('charSet', { All: text('true') }),
-											NotExpression: node('string', { Text: text('\'') })
-										})
+		item({
+			Name: item('String'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Reference: item({ Name: item('_') }) }),
+						item({ String: item({ Text: item('\'') }) }),
+						item({ Declaration: item({
+							Name: item('Text'),
+							Expression: item({ Repeat: item({
+								Expression: item({ Or: item({
+									Expressions: item([
+										item({ As: item({
+											Expression: item({ String: item({ Text: item('\'\'') }) }),
+											Value: item({ String: item({ Text: item('\'') }) })
+										}) }),
+										item({ AndNot: item({
+											Expression: item({ CharSet: item({ All: item('true') }) }),
+											NotExpression: item({ String: item({ Text: item('\'') }) })
+										}) })
 									])
-								})
-							})
-						}),
-						node('string', { Text: text('\'') }),
-						node('reference', { Name: text('_') })
+								}) })
+							}) })
+						}) }),
+						item({ String: item({ Text: item('\'') }) }),
+						item({ Reference: item({ Name: item('_') }) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('Range'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('declaration', {
-							Name: text('From'),
-							Expression: node('reference', { Name: text('Char') })
-						}),
-						node('quote', { Text: text('..') }),
-						node('declaration', {
-							Name: text('To'),
-							Expression: node('reference', { Name: text('Char') })
-						})
+		item({
+			Name: item('Range'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Declaration: item({
+							Name: item('From'),
+							Expression: item({ Reference: item({ Name: item('Char') }) })
+						}) }),
+						item({ Quote: item({ Text: item('..') }) }),
+						item({ Declaration: item({
+							Name: item('To'),
+							Expression: item({ Reference: item({ Name: item('Char') }) })
+						}) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('Char'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('reference', { Name: text('_') }),
-						node('or', {
-							Expressions: list([
-								node('group', {
-									Sequence: list([
-										node('string', { Text: text('#') }),
-										node('declaration', {
-											Name: text('Index'),
-											Expression: node('repeat', {
-												Expression: node('reference', { Name: text('digit') })
-											})
-										})
+		item({
+			Name: item('Char'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Reference: item({ Name: item('_') }) }),
+						item({ Or: item({
+							Expressions: item([
+								item({ Group: item({
+									Sequence: item([
+										item({ String: item({ Text: item('#') }) }),
+										item({ Declaration: item({
+											Name: item('Index'),
+											Expression: item({ Repeat: item({
+												Expression: item({ Reference: item({ Name: item('digit') }) })
+											}) })
+										}) })
 									])
-								}),
-								node('group', {
-									Sequence: list([
-										node('string', { Text: text('\'') }),
-										node('declaration', {
-											Name: text('Literal'),
-											Expression: node('or', {
-												Expressions: list([
-													node('as', {
-														Expression: node('string', { Text: text('\'\'') }),
-														Value: node('string', { Text: text('\'') })
-													}),
-													node('charSet', { All: text('true') })
+								}) }),
+								item({ Group: item({
+									Sequence: item([
+										item({ String: item({ Text: item('\'') }) }),
+										item({ Declaration: item({
+											Name: item('Literal'),
+											Expression: item({ Or: item({
+												Expressions: item([
+													item({ As: item({
+														Expression: item({ String: item({ Text: item('\'\'') }) }),
+														Value: item({ String: item({ Text: item('\'') }) })
+													}) }),
+													item({ CharSet: item({ All: item('true') }) })
 												])
-											})
-										}),
-										node('string', { Text: text('\'') }),
-										node('andNot', {
-											Expression: node('reference', { Name: text('identifier') }),
-											NotExpression: node('string', { Text: text('\'\'') })
-										})
+											}) })
+										}) }),
+										item({ String: item({ Text: item('\'') }) }),
+										item({ AndNot: item({
+											Expression: item({ Reference: item({ Name: item('identifier') }) }),
+											NotExpression: item({ String: item({ Text: item('\'\'') }) })
+										}) })
 									])
-								})
+								}) })
 							])
-						}),
-						node('reference', { Name: text('_') })
+						}) }),
+						item({ Reference: item({ Name: item('_') }) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('CharSet'),
-			Type: text(':='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('quote', { Text: text('{') }),
-						node('optional', {
-							Sequence: list([
-								node('declaration', {
-									Name: text('Not'),
-									Expression: node('quote', { Text: text('!') })
-								})
+		item({
+			Name: item('CharSet'),
+			Type: item(':='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Quote: item({ Text: item('{') }) }),
+						item({ Optional: item({
+							Sequence: item([
+								item({ Declaration: item({
+									Name: item('Not'),
+									Expression: item({ Quote: item({ Text: item('!') }) })
+								}) })
 							])
-						}),
-						node('or', {
-							Expressions: list([
-								node('declaration', {
-									Name: text('All'),
-									Expression: node('quote', { Text: text('?') })
-								}),
-								node('declaration', {
-									Name: text('Entries'),
-									Expression: node('separated', {
-										Expression: node('or', {
-											Expressions: list([
-												node('reference', { Name: text('Range') }),
-												node('reference', { Name: text('Char') })
+						}) }),
+						item({ Or: item({
+							Expressions: item([
+								item({ Declaration: item({
+									Name: item('All'),
+									Expression: item({ Quote: item({ Text: item('?') }) })
+								}) }),
+								item({ Declaration: item({
+									Name: item('Entries'),
+									Expression: item({ SeparatedRepeat: item({
+										Expression: item({ Or: item({
+											Expressions: item([
+												item({ Reference: item({ Name: item('Range') }) }),
+												item({ Reference: item({ Name: item('Char') }) })
 											])
-										}),
-										Separator: node('quote', { Text: text(',') })
-									})
-								})
+										}) }),
+										Separator: item({ Quote: item({ Text: item(',') }) })
+									}) })
+								}) })
 							])
-						}),
-						node('quote', { Text: text('}') })
+						}) }),
+						item({ Quote: item({ Text: item('}') }) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('identifier'),
-			Type: text('='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('reference', { Name: text('_') }),
-						node('capture', {
-							Expression: node('repeat', {
-								Expression: node('or', {
-									Expressions: list([
-										node('reference', { Name: text('letter') }),
-										node('group', {
-											Sequence: list([
-												node('string', { Text: text('_') }),
-												node('optional', {
-													Sequence: list([
-														node('repeat', {
-															Expression: node('or', {
-																Expressions: list([
-																	node('reference', { Name: text('letter') }),
-																	node('reference', { Name: text('digit') }),
-																	node('string', { Text: text('_') })
+		item({
+			Name: item('identifier'),
+			Type: item('='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Reference: item({ Name: item('_') }) }),
+						item({ Capture: item({
+							Expression: item({ Repeat: item({
+								Expression: item({ Or: item({
+									Expressions: item([
+										item({ Reference: item({ Name: item('letter') }) }),
+										item({ Group: item({
+											Sequence: item([
+												item({ String: item({ Text: item('_') }) }),
+												item({ Optional: item({
+													Sequence: item([
+														item({ Repeat: item({
+															Expression: item({ Or: item({
+																Expressions: item([
+																	item({ Reference: item({ Name: item('letter') }) }),
+																	item({ Reference: item({ Name: item('digit') }) }),
+																	item({ String: item({ Text: item('_') }) })
 																])
-															})
-														})
+															}) })
+														}) })
 													])
-												})
+												}) })
 											])
-										})
+										}) })
 									])
-								})
-							})
-						}),
-						node('reference', { Name: text('_') })
+								}) })
+							}) })
+						}) }),
+						item({ Reference: item({ Name: item('_') }) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('integer'),
-			Type: text('='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('reference', { Name: text('_') }),
-						node('capture', {
-							Expression: node('repeat', {
-								Expression: node('reference', { Name: text('digit') })
-							})
-						}),
-						node('reference', { Name: text('_') })
+		item({
+			Name: item('integer'),
+			Type: item('='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Reference: item({ Name: item('_') }) }),
+						item({ Capture: item({
+							Expression: item({ Repeat: item({
+								Expression: item({ Reference: item({ Name: item('digit') }) })
+							}) })
+						}) }),
+						item({ Reference: item({ Name: item('_') }) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('letter'),
-			Type: text('='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('charSet', {
-							Entries: list([
-								node('range', {
-									From: node('string', { Text: text('a') }),
-									To: node('string', { Text: text('z') })
-								}),
-								node('range', {
-									From: node('string', { Text: text('A') }),
-									To: node('string', { Text: text('Z') })
-								})
+		item({
+			Name: item('letter'),
+			Type: item('='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ CharSet: item({
+							Entries: item([
+								item({ Range: item({
+									From: item({ String: item({ Text: item('a') }) }),
+									To: item({ String: item({ Text: item('z') }) })
+								}) }),
+								item({ Range: item({
+									From: item({ String: item({ Text: item('A') }) }),
+									To: item({ String: item({ Text: item('Z') }) })
+								}) })
 							])
-						})
+						}) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('digit'),
-			Type: text('='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('range', {
-							From: node('string', { Text: text('0') }),
-							To: node('string', { Text: text('9') })
-						})
+		item({
+			Name: item('digit'),
+			Type: item('='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Range: item({
+							From: item({ String: item({ Text: item('0') }) }),
+							To: item({ String: item({ Text: item('9') }) })
+						}) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('_'),
-			Type: text('='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('optional', {
-							Sequence: list([
-								node('repeat', {
-									Expression: node('or', {
-										Expressions: list([
-											node('charSet', {
-												Entries: list([
-													node('string', { Text: text(' ') }),
-													node('range', {
-														From: node('char', { Index: text('9') }),
-														To: node('char', { Index: text('13') })
-													})
+		item({
+			Name: item('_'),
+			Type: item('='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ Optional: item({
+							Sequence: item([
+								item({ Repeat: item({
+									Expression: item({ Or: item({
+										Expressions: item([
+											item({ CharSet: item({
+												Entries: item([
+													item({ String: item({ Text: item(' ') }) }),
+													item({ Range: item({
+														From: item({ Char: item({ Index: item('9') }) }),
+														To: item({ Char: item({ Index: item('13') }) })
+													}) })
 												])
-											}),
-											node('reference', { Name: text('lineComment') }),
-											node('reference', { Name: text('blockComment') })
+											}) }),
+											item({ Reference: item({ Name: item('lineComment') }) }),
+											item({ Reference: item({ Name: item('blockComment') }) })
 										])
-									})
-								})
+									}) })
+								}) })
 							])
-						})
+						}) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('blockComment'),
-			Type: text('='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('string', { Text: text('/*') }),
-						node('repeat', {
-							Expression: node('or', {
-								Expressions: list([
-									node('reference', { Name: text('blockComment') }),
-									node('andNot', {
-										Expression: node('charSet', { All: text('true') }),
-										NotExpression: node('string', { Text: text('*/') })
-									})
+		item({
+			Name: item('blockComment'),
+			Type: item('='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ String: item({ Text: item('/*') }) }),
+						item({ Repeat: item({
+							Expression: item({ Or: item({
+								Expressions: item([
+									item({ Reference: item({ Name: item('blockComment') }) }),
+									item({ AndNot: item({
+										Expression: item({ CharSet: item({ All: item('true') }) }),
+										NotExpression: item({ String: item({ Text: item('*/') }) })
+									}) })
 								])
-							})
-						}),
-						node('string', { Text: text('*/') })
+							}) })
+						}) }),
+						item({ String: item({ Text: item('*/') }) })
 					])
-				})
+				}) })
 			])
 		}),
-		node('definition', {
-			Name: text('lineComment'),
-			Type: text('='),
-			Sequence: list([
-				node('sequence', {
-					Sequence: list([
-						node('string', { Text: text('//') }),
-						node('repeat', {
-							Expression: node('charSet', {
-								Not: text('true'),
-								Entries: list([
-									node('char', { Index: text('10') }),
-									node('char', { Index: text('13') })
+		item({
+			Name: item('lineComment'),
+			Type: item('='),
+			Sequence: item([
+				item({ Sequence: item({
+					Sequence: item([
+						item({ String: item({ Text: item('//') }) }),
+						item({ Repeat: item({
+							Expression: item({ CharSet: item({
+								Not: item('true'),
+								Entries: item([
+									item({ Char: item({ Index: item('10') }) }),
+									item({ Char: item({ Index: item('13') }) })
 								])
-							})
-						})
+							}) })
+						}) })
 					])
-				})
+				}) })
 			])
 		})
 	])
-});
+})});

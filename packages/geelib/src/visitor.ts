@@ -1,5 +1,5 @@
-import type { Node, List, Item } from "./ast/ast.js";
-import { isNode, isList } from "./ast/ast-helpers.js";
+import type { Item } from "./ast/ast.js";
+import { isNode, isList, type Member } from "./ast/ast.js";
 
 export interface VisitorContext {
   whitespaceRule?: string;
@@ -8,8 +8,8 @@ export interface VisitorContext {
 
 export interface VisitorRule {
   name: string;
-  nodeType?: string | string[];
-  visit(node: Node, context: VisitorContext): Node | null;
+  memberName?: string | string[];
+  visit(member: Member, context: VisitorContext): Member | undefined;
 }
 
 export class NodeVisitor {
@@ -17,8 +17,8 @@ export class NodeVisitor {
   private globalRules: VisitorRule[] = [];
 
   addRule(rule: VisitorRule): void {
-    if (rule.nodeType) {
-      const types = Array.isArray(rule.nodeType) ? rule.nodeType : [rule.nodeType];
+    if (rule.memberName) {
+      const types = Array.isArray(rule.memberName) ? rule.memberName : [rule.memberName];
       for (const type of types) {
         let rules = this.typeRules.get(type);
         if (!rules) {
@@ -32,49 +32,44 @@ export class NodeVisitor {
     }
   }
 
-  visit(node: Node, context: VisitorContext = {}): Node {
-    let current = node;
-    const typeRules = this.typeRules.get(current.type);
+  visit(member: Member, context: VisitorContext = {}): Member | undefined {
+		const [name] = member;
+		let replacement: Member | undefined;
+    const typeRules = this.typeRules.get(name);
     if (typeRules) {
       for (const rule of typeRules) {
-        const result = rule.visit(current, context);
+        const result = rule.visit(replacement ?? member, context);
         if (result) {
-          current = result;
+          replacement = result;
         }
       }
     }
 
     for (const rule of this.globalRules) {
-      const result = rule.visit(current, context);
+      const result = rule.visit(replacement ?? member, context);
       if (result) {
-        current = result;
+        replacement = result;
       }
     }
 
-    const newAttributes: Record<string, Item> = {};
-    for (const [key, value] of Object.entries(current.attributes)) {
-      let newValue: Item | undefined;
+		const newMember = replacement ?? member;
+		const [newName, value] = newMember;
+		return [newName, this.visitItem(value, context)]
+  }
 
-      if (isNode(value)) {
-        newValue = this.visit(value, context);
-      } else if (isList(value)) {
-        const list = value as List;
-        newValue = {
-          type: 'list',
-          items: list.items.map(item =>
-            isNode(item) ? this.visit(item, context) : item
-          )
-        } as List;
-      } else if (value) {
-        newValue = value;
-      }
-
-      if (newValue) {
-        newAttributes[key] = newValue;
-      }
-    }
-
-    return { ...current, attributes: { ...current.attributes, ...newAttributes } };
+	visitItem(item: Item, context: VisitorContext): Item {
+		if (isNode(item)) {
+			const attrs = Object.entries(item.value)
+			return { ...item, value: Object.fromEntries(attrs.map(member => {
+				const result = this.visit(member, context);
+				return result ?? member;
+			}))};
+		}
+		if (isList(item)) {
+			const list = item.value as Item[];
+			return { ...item, value: list.map(item => this.visitItem(item, context)) };
+		}
+		return item;
   }
 }
 

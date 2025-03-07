@@ -5,7 +5,7 @@ import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 export class QuoteExpander implements VisitorRule {
 	name = 'QuoteExpander';
-	nodeType = 'quote';
+	memberName = 'quote';
 
 	visit(node: Node, context: VisitorContext): Node | null {
 		const text = (node.attributes['Text'] as Text).value;

@@ -4,7 +4,7 @@ import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 export class GroupSimplifier implements VisitorRule {
 	name = 'GroupSimplifier';
-	nodeType = 'group';
+	memberName = 'group';
 
 	visit(node: Node, context: VisitorContext): Node | null {
 		const sequence = node.attributes['Sequence'] as List;

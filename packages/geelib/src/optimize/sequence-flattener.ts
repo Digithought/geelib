@@ -1,10 +1,10 @@
 import type { Node, List, Item } from "../ast/ast.js";
-import { isNode } from "../ast/ast-helpers.js";
+import { isNode } from "../ast/ast.js";
 import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 export class SequenceFlattener implements VisitorRule {
 	name = 'SequenceFlattener';
-	nodeType = ['definition', 'group'];
+	memberName = ['definition', 'group'];
 
 	visit(node: Node, context: VisitorContext): Node | null {
 		if (node.type === 'definition' || node.type === 'group') {
@@ -69,7 +69,7 @@ export class SequenceFlattener implements VisitorRule {
 
 export class GroupFlattener implements VisitorRule {
 	name = 'GroupFlattener';
-	nodeType = 'group';
+	memberName = 'group';
 
 	visit(node: Node, context: VisitorContext): Node | null {
 		if (node.type === 'group') {

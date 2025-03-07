@@ -4,7 +4,7 @@ import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 export class OrFlattener implements VisitorRule {
 	name = 'OrFlattener';
-	nodeType = 'or';
+	memberName = 'or';
 
 	visit(node: Node, context: VisitorContext): Node | null {
 		const expressions = node.attributes['Expressions'] as List;

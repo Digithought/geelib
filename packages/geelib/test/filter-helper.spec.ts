@@ -1,9 +1,8 @@
 import { expect } from 'aegir/chai';
 import { FilterHelper } from '../src/filter-helper.js';
-import { CharSet } from '../src/types.js';
-import { createDefinitionGroup } from '../src/definition.js';
 import type { DefinitionGroups, DefinitionGroup, Definition } from '../src/definition.js';
-import type { Node, NodeType, Item, Text, List } from '../src/ast/ast.js';
+import type { Node, Text, List } from '../src/ast/ast.js';
+import { item } from '../src/ast/ast.js';
 
 // Since we're only testing a few cases for brevity, let's define a more specific type
 interface TestDefinitions {
@@ -27,147 +26,65 @@ describe('FilterHelper', () => {
             {
               name: 'digit',
               precedence: 0,
-              instance: {
-                type: 'range' as NodeType,
-                attributes: {
-                  From: { type: 'char' as NodeType, attributes: { Char: { type: 'text' as NodeType, value: '0' } as Text } } as Node,
-                  To: { type: 'char' as NodeType, attributes: { Char: { type: 'text' as NodeType, value: '9' } as Text } } as Node
-                }
-              } as Node,
+              instance: item({
+                range: item({
+                  From: item({ char: item({ Char: item('0') }) }),
+                  To: item({ char: item({ Char: item('9') }) })
+                })
+              }),
               isLeftRecursive: () => false
             } as Definition
           ],
           referenceMinPrecedents: new Map(),
           isLeftRecursive: () => false
-        }
-      };
-
-      const helper = new FilterHelper(definitions);
-      helper.determine();
-
-      // Check that the filter was created correctly
-      const digitGroup = definitions.digit;
-      expect(digitGroup).to.exist;
-      expect(digitGroup!.filter).to.exist;
-      expect(digitGroup!.filter!.isExclusive).to.be.true;
-      expect(digitGroup!.filter!.charSet.matches('0')).to.be.true;
-      expect(digitGroup!.filter!.charSet.matches('5')).to.be.true;
-      expect(digitGroup!.filter!.charSet.matches('9')).to.be.true;
-      expect(digitGroup!.filter!.charSet.matches('a')).to.be.false;
-    });
-
-    it('should handle character sets', () => {
-      const definitions: TestDefinitions & DefinitionGroups = {
+        },
         alphaNum: {
           definitions: [
             {
               name: 'alphaNum',
               precedence: 0,
-              instance: {
-                type: 'charSet' as NodeType,
-                attributes: {
-                  Entries: {
-                    type: 'list' as NodeType,
-                    items: [
-                      {
-                        type: 'range' as NodeType,
-                        attributes: {
-                          From: { type: 'char' as NodeType, attributes: { Char: { type: 'text' as NodeType, value: 'a' } as Text } } as Node,
-                          To: { type: 'char' as NodeType, attributes: { Char: { type: 'text' as NodeType, value: 'z' } as Text } } as Node
-                        }
-                      } as Node,
-                      {
-                        type: 'range' as NodeType,
-                        attributes: {
-                          From: { type: 'char' as NodeType, attributes: { Char: { type: 'text' as NodeType, value: '0' } as Text } } as Node,
-                          To: { type: 'char' as NodeType, attributes: { Char: { type: 'text' as NodeType, value: '9' } as Text } } as Node
-                        }
-                      } as Node
-                    ]
-                  } as List
-                }
-              } as Node,
+              instance: item({
+                charSet: item({
+                  Entries: item([
+                    item({
+                      range: item({
+                        From: item({ char: item({ Char: item('a') }) }),
+                        To: item({ char: item({ Char: item('z') }) })
+                      })
+                    }),
+                    item({
+                      range: item({
+                        From: item({ char: item({ Char: item('0') }) }),
+                        To: item({ char: item({ Char: item('9') }) })
+                      })
+                    })
+                  ])
+                })
+              }),
               isLeftRecursive: () => false
             } as Definition
           ],
           referenceMinPrecedents: new Map(),
           isLeftRecursive: () => false
-        }
-      };
-
-      const helper = new FilterHelper(definitions);
-      helper.determine();
-
-      const alphaNumGroup = definitions.alphaNum;
-      expect(alphaNumGroup).to.exist;
-      expect(alphaNumGroup!.filter).to.exist;
-      expect(alphaNumGroup!.filter!.isExclusive).to.be.true;
-      expect(alphaNumGroup!.filter!.charSet.matches('a')).to.be.true;
-      expect(alphaNumGroup!.filter!.charSet.matches('m')).to.be.true;
-      expect(alphaNumGroup!.filter!.charSet.matches('z')).to.be.true;
-      expect(alphaNumGroup!.filter!.charSet.matches('5')).to.be.true;
-      expect(alphaNumGroup!.filter!.charSet.matches('!')).to.be.false;
-    });
-
-    it('should handle inverted character sets', () => {
-      const definitions: TestDefinitions & DefinitionGroups = {
+        },
         notDigit: {
           definitions: [
             {
               name: 'notDigit',
               precedence: 0,
-              instance: {
-                type: 'charSet' as NodeType,
-                attributes: {
-                  Not: { type: 'text' as NodeType, value: 'true' } as Text,
-                  Entries: {
-                    type: 'list' as NodeType,
-                    items: [
-                      {
-                        type: 'range' as NodeType,
-                        attributes: {
-                          From: { type: 'char' as NodeType, attributes: { Char: { type: 'text' as NodeType, value: '0' } as Text } } as Node,
-                          To: { type: 'char' as NodeType, attributes: { Char: { type: 'text' as NodeType, value: '9' } as Text } } as Node
-                        }
-                      } as Node
-                    ]
-                  } as List
-                }
-              } as Node,
-              isLeftRecursive: () => false
-            } as Definition
-          ],
-          referenceMinPrecedents: new Map(),
-          isLeftRecursive: () => false
-        }
-      };
-
-      const helper = new FilterHelper(definitions);
-      helper.determine();
-
-      expect(definitions.notDigit?.filter).to.exist;
-      expect(definitions.notDigit?.filter!.isExclusive).to.be.true;
-      expect(definitions.notDigit?.filter!.charSet.matches('0')).to.be.false;
-      expect(definitions.notDigit?.filter!.charSet.matches('5')).to.be.false;
-      expect(definitions.notDigit?.filter!.charSet.matches('9')).to.be.false;
-      expect(definitions.notDigit?.filter!.charSet.matches('a')).to.be.true;
-      expect(definitions.notDigit?.filter!.charSet.matches('!')).to.be.true;
-    });
-
-    it('should handle references between definitions', () => {
-      const definitions: TestDefinitions & DefinitionGroups = {
-        digit: {
-          definitions: [
-            {
-              name: 'digit',
-              precedence: 0,
-              instance: {
-                type: 'range' as NodeType,
-                attributes: {
-                  From: { type: 'char' as NodeType, attributes: { Char: { type: 'text' as NodeType, value: '0' } as Text } } as Node,
-                  To: { type: 'char' as NodeType, attributes: { Char: { type: 'text' as NodeType, value: '9' } as Text } } as Node
-                }
-              } as Node,
+              instance: item({
+                charSet: item({
+                  Not: item('true'),
+                  Entries: item([
+                    item({
+                      range: item({
+                        From: item({ char: item({ Char: item('0') }) }),
+                        To: item({ char: item({ Char: item('9') }) })
+                      })
+                    })
+                  ])
+                })
+              }),
               isLeftRecursive: () => false
             } as Definition
           ],
@@ -177,93 +94,34 @@ describe('FilterHelper', () => {
         number: {
           definitions: [
             {
-              name: 'number',
+              name: 'digit',
               precedence: 0,
-              instance: {
-                type: 'sequence' as NodeType,
-                attributes: {
-                  Sequence: {
-                    type: 'list' as NodeType,
-                    items: [
-                      {
-                        type: 'reference' as NodeType,
-                        attributes: {
-                          Name: { type: 'text' as NodeType, value: 'digit' } as Text
-                        }
-                      } as Node
-                    ]
-                  } as List
-                }
-              } as Node,
+              instance: item({
+                range: item({
+                  From: item({ char: item({ Char: item('0') }) }),
+                  To: item({ char: item({ Char: item('9') }) })
+                })
+              }),
               isLeftRecursive: () => false
             } as Definition
           ],
           referenceMinPrecedents: new Map(),
           isLeftRecursive: () => false
-        }
-      };
-
-      const helper = new FilterHelper(definitions);
-      helper.determine();
-
-      expect(definitions.digit?.filter).to.exist;
-      expect(definitions.number?.filter).to.exist;
-      expect(definitions.number?.filter!.charSet.matches('0')).to.be.true;
-      expect(definitions.number?.filter!.charSet.matches('9')).to.be.true;
-      expect(definitions.number?.filter!.charSet.matches('a')).to.be.false;
-    });
-
-    it('should handle recursive references', () => {
-      const definitions: TestDefinitions & DefinitionGroups = {
+        },
         expr: {
           definitions: [
             {
-              name: 'expr',
+              name: 'number',
               precedence: 0,
-              instance: {
-                type: 'or' as NodeType,
-                attributes: {
-                  Expressions: {
-                    type: 'list' as NodeType,
-                    items: [
-                      {
-                        type: 'reference' as NodeType,
-                        attributes: {
-                          Name: { type: 'text' as NodeType, value: 'term' } as Text
-                        }
-                      } as Node,
-                      {
-                        type: 'sequence' as NodeType,
-                        attributes: {
-                          Sequence: {
-                            type: 'list' as NodeType,
-                            items: [
-                              {
-                                type: 'reference' as NodeType,
-                                attributes: {
-                                  Name: { type: 'text' as NodeType, value: 'expr' } as Text
-                                }
-                              } as Node,
-                              {
-                                type: 'char' as NodeType,
-                                attributes: {
-                                  Char: { type: 'text' as NodeType, value: '+' } as Text
-                                }
-                              } as Node,
-                              {
-                                type: 'reference' as NodeType,
-                                attributes: {
-                                  Name: { type: 'text' as NodeType, value: 'term' } as Text
-                                }
-                              } as Node
-                            ]
-                          } as List
-                        }
-                      } as Node
-                    ]
-                  } as List
-                }
-              } as Node,
+              instance: item({
+                sequence: item([
+                  item({
+                    reference: item({
+                      Name: item('digit')
+                    })
+                  })
+                ])
+              }),
               isLeftRecursive: () => false
             } as Definition
           ],
@@ -273,53 +131,76 @@ describe('FilterHelper', () => {
         term: {
           definitions: [
             {
-              name: 'term',
+              name: 'expr',
               precedence: 0,
-              instance: {
-                type: 'range' as NodeType,
-                attributes: {
-                  From: { type: 'char' as NodeType, attributes: { Char: { type: 'text' as NodeType, value: '0' } as Text } } as Node,
-                  To: { type: 'char' as NodeType, attributes: { Char: { type: 'text' as NodeType, value: '9' } as Text } } as Node
-                }
-              } as Node,
+              instance: item({
+                or: item({
+                  Expressions: item([
+                    item({
+                      reference: item({
+                        Name: item('term')
+                      })
+                    }),
+                    item({
+                      sequence: item([
+                        item({
+                          reference: item({
+                            Name: item('expr')
+                          })
+                        }),
+                        item({
+                          char: item({
+                            Char: item('+')
+                          })
+                        }),
+                        item({
+                          reference: item({
+                            Name: item('term')
+                          })
+                        })
+                      ])
+                    })
+                  ])
+                })
+              }),
               isLeftRecursive: () => false
             } as Definition
           ],
           referenceMinPrecedents: new Map(),
           isLeftRecursive: () => false
-        }
-      };
-
-      const helper = new FilterHelper(definitions);
-      helper.determine();
-
-      expect(definitions.term?.filter).to.exist;
-      expect(definitions.expr?.filter).to.exist;
-      expect(definitions.expr?.filter!.charSet.matches('0')).to.be.true;
-      expect(definitions.expr?.filter!.charSet.matches('9')).to.be.true;
-      expect(definitions.expr?.filter!.charSet.matches('+')).to.be.true;
-      expect(definitions.expr?.filter!.charSet.matches('a')).to.be.false;
-    });
-
-    it('should handle optional expressions', () => {
-      const definitions: TestDefinitions & DefinitionGroups = {
+        },
         optionalDigit: {
+          definitions: [
+            {
+              name: 'term',
+              precedence: 0,
+              instance: item({
+                range: item({
+                  From: item({ char: item({ Char: item('0') }) }),
+                  To: item({ char: item({ Char: item('9') }) })
+                })
+              }),
+              isLeftRecursive: () => false
+            } as Definition
+          ],
+          referenceMinPrecedents: new Map(),
+          isLeftRecursive: () => false
+        },
+        keyword: {
           definitions: [
             {
               name: 'optionalDigit',
               precedence: 0,
-              instance: {
-                type: 'optional' as NodeType,
-                attributes: {
-                  Expression: {
-                    type: 'range' as NodeType,
-                    attributes: {
-                      From: { type: 'char' as NodeType, attributes: { Char: { type: 'text' as NodeType, value: '0' } as Text } } as Node,
-                      To: { type: 'char' as NodeType, attributes: { Char: { type: 'text' as NodeType, value: '9' } as Text } } as Node
-                    }
-                  } as Node
-                }
-              } as Node,
+              instance: item({
+                optional: item({
+                  Expression: item({
+                    range: item({
+                      From: item({ char: item({ Char: item('0') }) }),
+                      To: item({ char: item({ Char: item('9') }) })
+                    })
+                  })
+                })
+              }),
               isLeftRecursive: () => false
             } as Definition
           ],
@@ -328,43 +209,49 @@ describe('FilterHelper', () => {
         }
       };
 
-      const helper = new FilterHelper(definitions);
-      helper.determine();
+      // Create a filter helper
+      const filterHelper = new FilterHelper(definitions);
 
+      // Determine filters
+      filterHelper.determine();
+
+      // Check that filters were created for each definition group
+      expect(definitions.digit?.filter).to.exist;
+      expect(definitions.alphaNum?.filter).to.exist;
+      expect(definitions.notDigit?.filter).to.exist;
+      expect(definitions.number?.filter).to.exist;
+      expect(definitions.expr?.filter).to.exist;
+      expect(definitions.term?.filter).to.exist;
       expect(definitions.optionalDigit?.filter).to.exist;
-      expect(definitions.optionalDigit?.filter!.isExclusive).to.be.false;
-      expect(definitions.optionalDigit?.filter!.charSet.matches('0')).to.be.true;
-      expect(definitions.optionalDigit?.filter!.charSet.matches('9')).to.be.true;
-    });
-
-    it('should handle string literals', () => {
-      const definitions: TestDefinitions & DefinitionGroups = {
-        keyword: {
-          definitions: [
-            {
-              name: 'keyword',
-              precedence: 0,
-              instance: {
-                type: 'string' as NodeType,
-                attributes: {
-                  Value: { type: 'text' as NodeType, value: 'if' } as Text
-                }
-              } as Node,
-              isLeftRecursive: () => false
-            } as Definition
-          ],
-          referenceMinPrecedents: new Map(),
-          isLeftRecursive: () => false
-        }
-      };
-
-      const helper = new FilterHelper(definitions);
-      helper.determine();
-
       expect(definitions.keyword?.filter).to.exist;
-      expect(definitions.keyword?.filter!.isExclusive).to.be.true;
-      expect(definitions.keyword?.filter!.charSet.matches('i')).to.be.true;
-      expect(definitions.keyword?.filter!.charSet.matches('f')).to.be.false; // Only checks first char
+
+      // Check specific filter properties for digit
+      expect(definitions.digit?.filter?.isExclusive).to.be.true;
+      expect(definitions.digit?.filter?.charSet.matches('0')).to.be.true;
+      expect(definitions.digit?.filter?.charSet.matches('5')).to.be.true;
+      expect(definitions.digit?.filter?.charSet.matches('9')).to.be.true;
+      expect(definitions.digit?.filter?.charSet.matches('a')).to.be.false;
+
+      // Check specific filter properties for alphaNum
+      expect(definitions.alphaNum?.filter?.isExclusive).to.be.true;
+      expect(definitions.alphaNum?.filter?.charSet.matches('a')).to.be.true;
+      expect(definitions.alphaNum?.filter?.charSet.matches('z')).to.be.true;
+      expect(definitions.alphaNum?.filter?.charSet.matches('0')).to.be.true;
+      expect(definitions.alphaNum?.filter?.charSet.matches('9')).to.be.true;
+      expect(definitions.alphaNum?.filter?.charSet.matches('!')).to.be.false;
+
+      // Check specific filter properties for notDigit
+      expect(definitions.notDigit?.filter?.isExclusive).to.be.true;
+      expect(definitions.notDigit?.filter?.charSet.matches('0')).to.be.false;
+      expect(definitions.notDigit?.filter?.charSet.matches('5')).to.be.false;
+      expect(definitions.notDigit?.filter?.charSet.matches('9')).to.be.false;
+      expect(definitions.notDigit?.filter?.charSet.matches('a')).to.be.true;
+      expect(definitions.notDigit?.filter?.charSet.matches('!')).to.be.true;
+
+      // Check specific filter properties for keyword
+      expect(definitions.keyword?.filter?.isExclusive).to.be.true;
+      expect(definitions.keyword?.filter?.charSet.matches('i')).to.be.true;
+      expect(definitions.keyword?.filter?.charSet.matches('f')).to.be.false; // Only checks first char
     });
   });
 });

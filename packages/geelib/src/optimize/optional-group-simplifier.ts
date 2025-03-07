@@ -2,9 +2,9 @@ import type { Node, List } from "../ast/ast.js";
 import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 
-export class OptionalGroupSimplifier implements VisitorRule {
-	name = 'OptionalGroupSimplifier';
-	nodeType = 'optional';
+export class OptionalSimplifier implements VisitorRule {
+	name = 'OptionalSimplifier';
+	memberName = 'optional';
 
 	visit(node: Node, context: VisitorContext): Node | null {
 		const sequence = node.attributes['Sequence'] as List;

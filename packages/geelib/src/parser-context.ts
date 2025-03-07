@@ -1,6 +1,8 @@
 import type { TokenStream } from './types.js';
 import type { Item, Text, List } from "./ast/ast.js";
-import { isList } from "./ast/ast-helpers.js";
+import { isList, isText, item } from "./ast/ast.js";
+import { undefinedIf } from "./utility/undefined-if.js";
+import { ParserError } from './errors.js';
 
 export enum CacheStatus {
   False = 0,
@@ -18,9 +20,7 @@ type CacheBucket = Map<string, CacheEntry>;
 
 export class ParserContext {
   private definitionCache = new Map<number, CacheBucket>();
-  private resultStack: Item[] = [];
   private positions: number[] = [];
-  private transactionLevel = 0;
 
   public whitespaceRule?: string;
   public caseSensitive: boolean = true;
@@ -36,55 +36,96 @@ export class ParserContext {
     }
   }
 
-  get result(): Item {
-    const result = this.resultStack[this.resultStack.length - 1];
-    if (!result) throw new Error('No result on stack');
-    return result;
-  }
+  /**
+   * Compares two strings based on the case sensitivity setting
+   */
+  compareStrings(a: string | undefined, b: string | undefined): boolean {
+    if (!a || !b) return false;
 
-  beginTransaction(): void {
-    this.transactionLevel++;
-    this.pushPosition();
-    this.pushResults();
-  }
-
-  commitTransaction(): void {
-    if (this.transactionLevel <= 0) {
-      throw new Error('No active transaction to commit');
+    if (this.caseSensitive) {
+      return a === b;
+    } else {
+      return a.toLowerCase() === b.toLowerCase();
     }
-    this.transactionLevel--;
-    this.commitPosition();
-    this.commitResult();
   }
 
-  rollbackTransaction(): void {
-    if (this.transactionLevel <= 0) {
-      throw new Error('No active transaction to rollback');
+  /**
+   * Executes a parsing operation within a transaction
+   * Similar to ParseTransact in ParserBase.cs
+   */
+  parseTransact<T extends Item | undefined>(operation: () => T): T {
+    const startPosition = this.pushPosition();
+
+    try {
+      const result = operation();
+      if (result === undefined) {
+        // If parsing failed, restore position
+        this.reader.position = startPosition;
+      }
+      return result;
+    } catch (error) {
+      // On error, restore position and rethrow
+      this.reader.position = startPosition;
+      throw error;
+    } finally {
+      this.popPosition();
     }
-    this.transactionLevel--;
-    this.rollbackPosition();
-    this.rollbackResult();
   }
 
-  cacheSeek(definition: string): boolean | null {
+  /**
+   * Executes a parsing operation with caching
+   * Similar to ParseCache in ParserBase.cs
+   */
+  parseCache<T extends Item | undefined>(definition: string, parseMethod: () => T): T {
+    // Check cache first
+    const cacheResult = this.cacheSeek(definition);
+    if (cacheResult !== false) {
+      return cacheResult as T;
+    }
+
+    // Not in cache, start evaluating
+    const startPosition = this.reader.position;
+    this.cacheStart(definition);
+
+    try {
+      const result = parseMethod();
+
+      if (result !== undefined) {
+        // Cache successful result
+        this.cacheSucceed(definition, startPosition, this.reader.position, result);
+      } else {
+        // Cache failure
+        this.cacheFail(definition, startPosition);
+      }
+
+      return result;
+    } catch (error) {
+      this.cacheFail(definition, startPosition);
+      throw error;
+    }
+  }
+
+  /**
+   * Checks if a definition is in the cache
+   */
+  cacheSeek(definition: string): Item | null | false {
     const bucket = this.definitionCache.get(this.reader.position);
-    if (!bucket) return null;
+    if (!bucket) return false;
 
     const entry = bucket.get(definition);
-    if (!entry) return null;
+    if (!entry) return false;
 
     if ((entry.status & CacheStatus.True) === CacheStatus.True) {
       this.reader.position += entry.length!;
-      if (entry.result && this.resultStack.length > 0) {
-        this.append(entry.result);
-      } else if (entry.result) {
-        this.pushResult(entry.result);
-      }
-      return true;
+      return entry.result || null;
     }
+
     return false;
   }
 
+  /**
+   * Marks a definition as being evaluated
+   */
   cacheStart(definition: string): void {
     const bucket = this.getCacheBucket(this.reader.position);
     const entry = bucket.get(definition);
@@ -96,6 +137,9 @@ export class ParserContext {
     }
   }
 
+  /**
+   * Marks a definition as successfully parsed
+   */
   cacheSucceed(definition: string, startPosition: number, endPosition: number, result: Item): void {
     const bucket = this.getCacheBucket(startPosition);
     const entry = bucket.get(definition);
@@ -105,10 +149,13 @@ export class ParserContext {
       entry.result = result;
       entry.length = endPosition - startPosition;
     } else {
-      throw new Error("Internal error: unstarted cache definition succeeded");
+      throw new ParserError("Internal error: unstarted cache definition succeeded", startPosition);
     }
   }
 
+  /**
+   * Marks a definition as failed
+   */
   cacheFail(definition: string, startPosition: number): void {
     const bucket = this.getCacheBucket(startPosition);
     const entry = bucket.get(definition);
@@ -116,10 +163,13 @@ export class ParserContext {
     if (entry) {
       entry.status &= ~CacheStatus.Evaluating;
     } else {
-      throw new Error("Internal error: unstarted cache definition failed");
+      throw new ParserError("Internal error: unstarted cache definition failed", startPosition);
     }
   }
 
+  /**
+   * Resets the cache for the current position
+   */
   cacheReset(): void {
     const bucket = this.definitionCache.get(this.reader.position);
     if (!bucket) return;
@@ -132,59 +182,25 @@ export class ParserContext {
     });
   }
 
-  pushResult(result: Item | null): void {
-    if (result) {
-      result.start = this.reader.position;
-      result.end = this.reader.position;
-      this.resultStack.push(result);
-    }
+  /**
+   * Saves the current position and returns it
+   */
+  pushPosition(): number {
+    const position = this.reader.position;
+    this.positions.push(position);
+    return position;
   }
 
-  pushResults(): void {
-    this.pushResult({
-      type: 'text',
-      value: '',
-      start: this.reader.position,
-      end: this.reader.position
-    } as Text);
-  }
-
-  commitResult(): void {
-    const result = this.resultStack.pop();
-    if (this.resultStack.length > 0 && result) {
-      const prev = this.resultStack.pop();
-      if (prev) {
-        this.resultStack.push(this.appendItems(prev, result));
-      }
-    }
-  }
-
-  rollbackResult(): void {
-    this.resultStack.pop();
-  }
-
-  append(result: Item): void {
-    const current = this.result;
-    if (current) {
-      this.appendItems(current, result);
-    }
-  }
-
-  pushPosition(): void {
-    this.positions.push(this.reader.position);
-  }
-
-  commitPosition(): void {
+  /**
+   * Removes the last saved position
+   */
+  popPosition(): void {
     this.positions.pop();
   }
 
-  rollbackPosition(): void {
-    const pos = this.positions.pop();
-    if (pos !== undefined) {
-      this.reader.position = pos;
-    }
-  }
-
+  /**
+   * Gets or creates a cache bucket for the given position
+   */
   private getCacheBucket(position: number): CacheBucket {
     let bucket = this.definitionCache.get(position);
     if (!bucket) {
@@ -194,29 +210,28 @@ export class ParserContext {
     return bucket;
   }
 
-  private appendItems(target: Item, source: Item): Item {
-    if (isList(target) && isList(source)) {
-      target.items.push(...source.items);
-    } else if (this.isText(target) && this.isText(source)) {
-      target.value += source.value;
-    } else if (isList(target)) {
-      target.items.push(source);
-    } else {
-      // Convert target to list if needed
-      const list: List = {
-        type: 'list',
-        items: [target, source],
-        start: Math.min(target.start!, source.start!),
-        end: Math.max(target.end!, source.end!)
-      };
-      return list;
-    }
-    target.start = Math.min(target.start!, source.start!);
-    target.end = Math.max(target.end!, source.end!);
-    return target;
-  }
+  /**
+   * Combines two items into one
+   */
+  combineItems(left: Item, right: Item): Item {
+    const start = undefinedIf(Math.min(left.start ?? Infinity, right.start ?? Infinity), Infinity);
+    const end = undefinedIf(Math.max(left.end ?? 0, right.end ?? 0), 0);
 
-  private isText(item: Item): item is Text {
-    return item.type === 'text';
+    if (isList(left)) {
+      if (isList(right)) {
+        return item([...(left.value as Array<Item>), ...(right.value as Array<Item>)], start, end);
+      } else {
+        return item([...(left.value as Array<Item>), right], start, end);
+      }
+    } else if (isText(left)) {
+      if (isText(right)) {
+        return item((left.value as string) + (right.value as string), start, end);
+      } else {
+        return item([left, right], start, end);
+      }
+    } else {
+      // Convert to list
+      return item([left, right], start, end);
+    }
   }
 }

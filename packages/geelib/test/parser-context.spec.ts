@@ -1,217 +1,96 @@
 import { expect } from 'aegir/chai';
-import { ParserContext, CacheStatus } from '../src/parser-context.js';
+import { ParserContext } from '../src/parser-context.js';
 import { StringStream } from '../src/string-stream.js';
-import type { Item, Text, List } from '../src/ast/ast.js';
+import { item } from '../src/ast/ast.js';
+import type { Text } from '../src/ast/ast.js';
 
 describe('ParserContext', () => {
-  describe('constructor', () => {
-    it('should create a new ParserContext with default options', () => {
+  describe('position tracking', () => {
+    it('should track position correctly', () => {
       const stream = new StringStream('test');
       const context = new ParserContext(stream);
 
-      expect(context.reader).to.equal(stream);
-      expect(context.whitespaceRule).to.be.undefined;
-      expect(context.caseSensitive).to.be.true;
-    });
-
-    it('should create a new ParserContext with custom options', () => {
-      const stream = new StringStream('test');
-      const context = new ParserContext(stream, false, {
-        whitespaceRule: 'ws',
-        caseSensitive: false
-      });
-
-      expect(context.reader).to.equal(stream);
-      expect(context.whitespaceRule).to.equal('ws');
-      expect(context.caseSensitive).to.be.false;
-    });
-  });
-
-  describe('transaction methods', () => {
-    it('should handle begin/commit transaction', () => {
-      const stream = new StringStream('test');
-      const context = new ParserContext(stream);
-
-      // Initial state
-      expect(stream.position).to.equal(0);
-
-      // Begin transaction
-      context.beginTransaction();
+      // Save position
+      const startPos = context.pushPosition();
+      expect(startPos).to.equal(0);
 
       // Move position
       stream.position = 2;
-      expect(stream.position).to.equal(2);
 
-      // Commit transaction
-      context.commitTransaction();
+      // Pop position without restoring
+      context.popPosition();
 
       // Position should remain at 2
       expect(stream.position).to.equal(2);
     });
 
-    it('should handle begin/rollback transaction', () => {
+    it('should restore position in parseTransact when operation returns undefined', () => {
       const stream = new StringStream('test');
       const context = new ParserContext(stream);
 
-      // Initial state
-      expect(stream.position).to.equal(0);
+      const result = context.parseTransact(() => {
+        // Move position
+        stream.position = 2;
 
-      // Begin transaction
-      context.beginTransaction();
-
-      // Move position
-      stream.position = 2;
-      expect(stream.position).to.equal(2);
-
-      // Rollback transaction
-      context.rollbackTransaction();
+        // Return undefined to trigger position restore
+        return undefined;
+      });
 
       // Position should be back to 0
       expect(stream.position).to.equal(0);
+      expect(result).to.be.undefined;
     });
 
-    it('should throw error when committing with no active transaction', () => {
+    it('should maintain position in parseTransact when operation returns a value', () => {
       const stream = new StringStream('test');
       const context = new ParserContext(stream);
 
-      expect(() => context.commitTransaction()).to.throw('No active transaction to commit');
-    });
+      const result = context.parseTransact(() => {
+        // Move position
+        stream.position = 2;
 
-    it('should throw error when rolling back with no active transaction', () => {
-      const stream = new StringStream('test');
-      const context = new ParserContext(stream);
+        // Return a value to keep the position
+        return item('test');
+      });
 
-      expect(() => context.rollbackTransaction()).to.throw('No active transaction to rollback');
-    });
-
-    it('should handle nested transactions', () => {
-      const stream = new StringStream('test');
-      const context = new ParserContext(stream);
-
-      // Initial state
-      expect(stream.position).to.equal(0);
-
-      // Begin outer transaction
-      context.beginTransaction();
-
-      // Move position
-      stream.position = 1;
-      expect(stream.position).to.equal(1);
-
-      // Begin inner transaction
-      context.beginTransaction();
-
-      // Move position again
-      stream.position = 2;
+      // Position should remain at 2
       expect(stream.position).to.equal(2);
+      expect(result).to.not.be.undefined;
+    });
 
-      // Rollback inner transaction
-      context.rollbackTransaction();
+    it('should handle nested parseTransact calls', () => {
+      const stream = new StringStream('test');
+      const context = new ParserContext(stream);
 
-      // Position should be back to 1
-      expect(stream.position).to.equal(1);
+      const result = context.parseTransact(() => {
+        // Move position
+        stream.position = 1;
 
-      // Commit outer transaction
-      context.commitTransaction();
+        // Inner transaction that fails
+        const innerResult = context.parseTransact(() => {
+          // Move position again
+          stream.position = 2;
+
+          // Return undefined to trigger position restore
+          return undefined;
+        });
+
+        // Position should be back to 1
+        expect(stream.position).to.equal(1);
+        expect(innerResult).to.be.undefined;
+
+        // Return a value from outer transaction
+        return item('t');
+      });
 
       // Position should remain at 1
       expect(stream.position).to.equal(1);
-    });
-  });
-
-  describe('result handling', () => {
-    it('should push and access results', () => {
-      const stream = new StringStream('test');
-      const context = new ParserContext(stream);
-
-      const testResult: Text = {
-        type: 'text',
-        value: 'test',
-        start: 0,
-        end: 0
-      };
-
-      context.pushResult(testResult);
-
-      expect(context.result).to.deep.equal({
-        type: 'text',
-        value: 'test',
-        start: 0,
-        end: 0
-      });
-    });
-
-    it('should throw error when accessing result with empty stack', () => {
-      const stream = new StringStream('test');
-      const context = new ParserContext(stream);
-
-      expect(() => context.result).to.throw('No result on stack');
-    });
-
-    it('should append items to result', () => {
-      const stream = new StringStream('test');
-      const context = new ParserContext(stream);
-
-      // Push initial result
-      context.pushResult({
-        type: 'text',
-        value: 'hello',
-        start: 0,
-        end: 5
-      } as Text);
-
-      // Append another result
-      context.append({
-        type: 'text',
-        value: ' world',
-        start: 5,
-        end: 11
-      } as Text);
-
-      // Check combined result
-      expect(context.result).to.deep.equal({
-        type: 'text',
-        value: 'hello world',
-        start: 0,
-        end: 11
-      });
-    });
-
-    it('should handle list items when appending', () => {
-      const stream = new StringStream('test');
-      const context = new ParserContext(stream);
-
-      // Push initial list result
-      context.pushResult({
-        type: 'list',
-        items: [{ type: 'text', value: 'a', start: 0, end: 1 } as Text],
-        start: 0,
-        end: 1
-      } as List);
-
-      // Append another item
-      context.append({
-        type: 'text',
-        value: 'b',
-        start: 1,
-        end: 2
-      } as Text);
-
-      // Check combined result
-      expect(context.result).to.deep.equal({
-        type: 'list',
-        items: [
-          { type: 'text', value: 'a', start: 0, end: 1 },
-          { type: 'text', value: 'b', start: 1, end: 2 }
-        ],
-        start: 0,
-        end: 2
-      });
+      expect(result).to.not.be.undefined;
     });
   });
 
   describe('caching', () => {
-    it('should handle cache operations', () => {
+    it('should cache successful parses', () => {
       const stream = new StringStream('test');
       const context = new ParserContext(stream);
       const defName = 'testDef';
@@ -223,7 +102,7 @@ describe('ParserContext', () => {
       stream.position = 2;
 
       // Create a result
-      const result: Text = { type: 'text', value: 'te', start: 0, end: 2 };
+      const result = item('te');
 
       // Cache success
       context.cacheSucceed(defName, 0, 2, result);
@@ -233,7 +112,7 @@ describe('ParserContext', () => {
 
       // Check if cache hit works
       const cacheHit = context.cacheSeek(defName);
-      expect(cacheHit).to.be.true;
+      expect(cacheHit).to.not.equal(false);
       expect(stream.position).to.equal(2);
     });
 
@@ -250,35 +129,104 @@ describe('ParserContext', () => {
 
       // Check if cache miss works
       const cacheHit = context.cacheSeek(defName);
-      expect(cacheHit).to.be.false;
+      expect(cacheHit).to.equal(false);
       expect(stream.position).to.equal(0);
     });
 
-    it('should return null for non-existent cache entries', () => {
-      const stream = new StringStream('test');
-      const context = new ParserContext(stream);
-
-      const cacheHit = context.cacheSeek('nonExistentDef');
-      expect(cacheHit).to.be.null;
-    });
-
-    it('should reset cache entries', () => {
+    it('should use parseCache for caching parse operations', () => {
       const stream = new StringStream('test');
       const context = new ParserContext(stream);
       const defName = 'testDef';
 
-      // Start caching
-      context.cacheStart(defName);
+      // First call should execute the operation
+      let operationCalled = false;
+      const result1 = context.parseCache(defName, () => {
+        operationCalled = true;
+        stream.position = 2;
+        return item('te');
+      });
 
-      // Cache failure
-      context.cacheFail(defName, 0);
+      expect(operationCalled).to.be.true;
+      expect(result1).to.not.be.undefined;
+      expect(stream.position).to.equal(2);
 
-      // Reset cache
-      context.cacheReset();
+      // Reset position
+      stream.position = 0;
 
-      // Should be null now
-      const cacheHit = context.cacheSeek(defName);
-      expect(cacheHit).to.be.null;
+      // Second call should use the cache
+      operationCalled = false;
+      const result2 = context.parseCache(defName, () => {
+        operationCalled = false;
+        return undefined;
+      });
+
+      expect(operationCalled).to.be.false;
+      expect(result2).to.not.be.undefined;
+      expect(stream.position).to.equal(2);
+    });
+  });
+
+  describe('string comparison', () => {
+    it('should compare strings case-sensitively by default', () => {
+      const stream = new StringStream('test');
+      const context = new ParserContext(stream);
+
+      expect(context.compareStrings('a', 'a')).to.be.true;
+      expect(context.compareStrings('a', 'A')).to.be.false;
+    });
+
+    it('should compare strings case-insensitively when configured', () => {
+      const stream = new StringStream('test');
+      const context = new ParserContext(stream, false, { caseSensitive: false });
+
+      expect(context.compareStrings('a', 'a')).to.be.true;
+      expect(context.compareStrings('a', 'A')).to.be.true;
+    });
+
+    it('should handle undefined values', () => {
+      const stream = new StringStream('test');
+      const context = new ParserContext(stream);
+
+      expect(context.compareStrings('a', undefined)).to.be.false;
+      expect(context.compareStrings(undefined, 'a')).to.be.false;
+      expect(context.compareStrings(undefined, undefined)).to.be.false;
+    });
+  });
+
+  describe('item combination', () => {
+    it('should combine text items', () => {
+      const stream = new StringStream('test');
+      const context = new ParserContext(stream);
+
+      const text1 = item('hello');
+      const text2 = item(' world');
+
+      const combined = context.combineItems(text1, text2);
+      expect(combined.value).to.equal('hello world');
+    });
+
+    it('should combine list items', () => {
+      const stream = new StringStream('test');
+      const context = new ParserContext(stream);
+
+      const list1 = item([item('a')]);
+      const list2 = item([item('b')]);
+
+      const combined = context.combineItems(list1, list2);
+      expect(Array.isArray(combined.value)).to.be.true;
+      expect((combined.value as Array<any>).length).to.equal(2);
+    });
+
+    it('should convert non-list items to lists when combining with different types', () => {
+      const stream = new StringStream('test');
+      const context = new ParserContext(stream);
+
+      const text = item('hello');
+      const list = item([item('world')]);
+
+      const combined = context.combineItems(text, list);
+      expect(Array.isArray(combined.value)).to.be.true;
+      expect((combined.value as Array<any>).length).to.equal(2);
     });
   });
 });

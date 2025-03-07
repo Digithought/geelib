@@ -1,4 +1,4 @@
-import { isNode, isList } from "./ast/ast-helpers.js";
+import { isNode, isList } from "./ast/ast.js";
 import type { Definition, DefinitionGroup, DefinitionGroups } from "./definition.js";
 import { Associativity, RecurseMask, Recursiveness, createDefinition } from "./definition.js";
 import type { List, Node, Text } from "./ast/ast.js";
