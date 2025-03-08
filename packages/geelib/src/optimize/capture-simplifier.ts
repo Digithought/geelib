@@ -1,4 +1,5 @@
-import type { Node, List } from "../ast/ast.js";
+import type { Node, List, Item, Member, Text } from "../ast/ast.js";
+import { isNode, isList } from "../ast/ast.js";
 import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 /**
@@ -19,17 +20,23 @@ export class CaptureSimplifier implements VisitorRule {
 	name = 'CaptureSimplifier';
 	memberName = 'capture';
 
-	visit(node: Node, context: VisitorContext): Node | null {
-		const expr = node.attributes['Expression'] as Node;
+	visit(member: Member, context: VisitorContext): Member | undefined {
+		const [name, item] = member;
+
+		if (!isNode(item)) {
+			return undefined;
+		}
+
+		const expr = item.value['Expression'] as Item;
 
 		// Remove redundant nested captures
-		if (expr.type === 'capture') {
-			return expr;
+		if (isNode(expr) && 'type' in expr && expr.type === 'capture') {
+			return [name, expr];
 		}
 
 		// Case 3: Capture of a string/char literal - could potentially optimize but need more context
 		// Left as a TODO since we'd need to know if the capture is actually needed by the parser
 
-		return null;
+		return undefined;
 	}
 }

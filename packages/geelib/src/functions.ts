@@ -1,8 +1,7 @@
 import type { TokenStream } from './types.js';
 import type { Item, Node } from "./ast/ast.js";
-import { OptimizedGrammar } from './grammar.js';
 import { Parser } from './parser.js';
-import { optimize } from './optimize/optimizer.js';
+import { optimize, OptimizedGrammar } from './optimize/optimizer.js';
 import { StringStream } from './string-stream.js';
 import { buildGrammar } from './grammar-builder.js';
 import { geeAst } from './ast/gee-ast.js';
@@ -28,6 +27,9 @@ export function parseGrammar(grammarStream: TokenStream): OptimizedGrammar {
 	const geeGrammar = optimize(rawGeeGrammar);
   const parser = new Parser(geeGrammar);
   const ast = parser.parse(grammarStream);
+  if (!ast) {
+    throw new Error('Failed to parse grammar');
+  }
 	const grammar = buildGrammar(ast as Node);
 	return optimize(grammar);
 }
@@ -42,7 +44,7 @@ export function parseGrammar(grammarStream: TokenStream): OptimizedGrammar {
 export function parseText(grammar: OptimizedGrammar, text: string): Item | null {
   const reader = new StringStream(text);
   const parser = new Parser(grammar);
-  return parser.parse(reader);
+  return parser.parse(reader) || null;
 }
 
 /**
@@ -53,7 +55,7 @@ export function parseText(grammar: OptimizedGrammar, text: string): Item | null 
  */
 export function parseStream(grammar: OptimizedGrammar, input: TokenStream): Item | null {
   const parser = new Parser(grammar);
-  return parser.parse(input);
+  return parser.parse(input) || null;
 }
 
 /**

@@ -44,23 +44,3 @@ export class Grammar {
     );
   }
 }
-
-/**
- * A grammar that has been optimized for parsing
- */
-export class OptimizedGrammar extends Grammar {
-  /**
-   * Creates a new OptimizedGrammar instance
-   *
-   * @param definitions The optimized definition groups
-   * @param root The name of the root rule
-   * @param options Grammar options for parsing
-   */
-  constructor(
-    definitions: DefinitionGroups,
-    root: string,
-    options: GrammarOptions = {}
-  ) {
-    super(definitions, root, options);
-  }
-}

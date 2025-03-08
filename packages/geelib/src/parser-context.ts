@@ -45,7 +45,8 @@ export class ParserContext {
     if (this.caseSensitive) {
       return a === b;
     } else {
-      return a.toLowerCase() === b.toLowerCase();
+			// Locale specified for deterministic results
+      return a.localeCompare(b, 'en', { sensitivity: 'accent' }) === 0;
     }
   }
 
@@ -208,30 +209,5 @@ export class ParserContext {
       this.definitionCache.set(position, bucket);
     }
     return bucket;
-  }
-
-  /**
-   * Combines two items into one
-   */
-  combineItems(left: Item, right: Item): Item {
-    const start = undefinedIf(Math.min(left.start ?? Infinity, right.start ?? Infinity), Infinity);
-    const end = undefinedIf(Math.max(left.end ?? 0, right.end ?? 0), 0);
-
-    if (isList(left)) {
-      if (isList(right)) {
-        return item([...(left.value as Array<Item>), ...(right.value as Array<Item>)], start, end);
-      } else {
-        return item([...(left.value as Array<Item>), right], start, end);
-      }
-    } else if (isText(left)) {
-      if (isText(right)) {
-        return item((left.value as string) + (right.value as string), start, end);
-      } else {
-        return item([left, right], start, end);
-      }
-    } else {
-      // Convert to list
-      return item([left, right], start, end);
-    }
   }
 }

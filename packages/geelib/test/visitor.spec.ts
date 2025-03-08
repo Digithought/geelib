@@ -30,62 +30,74 @@ describe('NodeVisitor', () => {
       expect(called).to.be.true;
     });
 
-    it('should add a rule with a filter', () => {
+    it('should add a rule with a memberName filter', () => {
       const visitor = new NodeVisitor();
       let matchingCalled = false;
       let nonMatchingCalled = false;
 
       const rule: VisitorRule = {
         name: 'filteredRule',
+        memberName: 'text',
         visit: (member: Member, context: VisitorContext) => {
-          const [name, item] = member;
+          matchingCalled = true;
           return member;
         }
       };
 
       visitor.addRule(rule);
 
-      const matchingNode = item({}, 0, 0, 'text');
-      const nonMatchingNode = item({}, 0, 0, 'other');
+      // Create a spy for non-matching members
+      const nonMatchingRule: VisitorRule = {
+        name: 'nonMatchingRule',
+        memberName: 'other',
+        visit: (member: Member, context: VisitorContext) => {
+          nonMatchingCalled = true;
+          return member;
+        }
+      };
+
+      visitor.addRule(nonMatchingRule);
+
+      // Create test nodes
+      const matchingNode = item({});
+      const nonMatchingNode = item({});
+
+      // Create members with different names to test filtering
       const matchingMember: Member = ['text', matchingNode];
       const nonMatchingMember: Member = ['other', nonMatchingNode];
 
-      rule.visit = (member: Member, context: VisitorContext) => {
-        const [name, node] = member;
-        if (node.grammarName === 'text') {
-          matchingCalled = true;
-        } else {
-          nonMatchingCalled = true;
-        }
-        return member;
-      };
-
+      // Visit the matching member
       visitor.visit(matchingMember);
-      visitor.visit(nonMatchingMember);
-
       expect(matchingCalled).to.be.true;
       expect(nonMatchingCalled).to.be.false;
+
+      // Reset flags
+      matchingCalled = false;
+      nonMatchingCalled = false;
+
+      // Visit the non-matching member
+      visitor.visit(nonMatchingMember);
+      expect(matchingCalled).to.be.false;
+      expect(nonMatchingCalled).to.be.true;
     });
   });
 
   describe('visit', () => {
     it('should visit child nodes', () => {
       const visitor = new NodeVisitor();
-      const childNode = item({}, 0, 0, 'child');
+      const childNode = item({});
       const parentNode = item({ child: childNode });
       const member: Member = ['parent', parentNode];
 
       visitor.addRule({
         name: 'modifyRule',
+        memberName: 'child',
         visit: (member: Member, context: VisitorContext) => {
           const [name, node] = member;
-          if (node.grammarName === 'child') {
-            return [name, {
-              ...node,
-              grammarName: 'modified-child'
-            }];
-          }
-          return member;
+          return [name, {
+            ...node,
+            grammarName: 'modified-child'
+          }];
         }
       });
 
@@ -102,16 +114,25 @@ describe('NodeVisitor', () => {
 
     it('should visit items in a list', () => {
       const visitor = new NodeVisitor();
-      const item1 = item({}, 0, 0, 'item1');
-      const item2 = item({}, 0, 0, 'item2');
+
+      // Create two items for the list
+      const item1 = item({});
+      const item2 = item({});
+
+      // Create a list containing the items
       const listNode = item([item1, item2]);
+
+      // Create a member with the list
       const member: Member = ['list', listNode];
 
+      // Add a rule that modifies the first item in the list
       visitor.addRule({
-        name: 'modifyRule',
+        name: 'modifyFirstItemRule',
         visit: (member: Member, context: VisitorContext) => {
           const [name, node] = member;
-          if (node.grammarName === 'item1') {
+          // This is a global rule that will be applied to all items
+          // We'll check if this is the first item in the list by checking if it's the same object
+          if (node === item1) {
             return [name, {
               ...node,
               grammarName: 'modified-item1'
@@ -130,7 +151,7 @@ describe('NodeVisitor', () => {
       const resultItems = resultNode.value as Item[];
 
       expect(resultItems[0]?.grammarName).to.equal('modified-item1');
-      expect(resultItems[1]?.grammarName).to.equal('item2');
+      expect(resultItems[1]?.grammarName).to.be.undefined;
     });
 
     it('should handle text nodes', () => {

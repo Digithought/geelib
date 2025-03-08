@@ -7,8 +7,7 @@
 	* := indicates that the definition is also a declaration
 	* Declaration names are required to begin upper-cased (Pascal-case by convention)
 	* Definition names case must start upper if also a declaration and lower otherwise (camel by convention)
-	* A declaration's contents may not combine captures and definitions
-	* If a declaration is contains declarations within a repeat, it will be of cardinality n
+	* Repeats with anything but text, will result in a list
 	* The first definition is assumed to be the default ("root")
 */
 

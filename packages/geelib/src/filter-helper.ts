@@ -1,5 +1,6 @@
 import { CharSet } from './types.js';
-import type { Node, List, Text } from "./ast/ast.js";
+import type { Node, List, Text, Item } from "./ast/ast.js";
+import { isNode, isList, singleMember, getAttribute, getTextValue } from "./ast/ast.js";
 import type { DefinitionGroups } from './definition.js';
 import type { Filter } from './definition.js';
 
@@ -62,12 +63,16 @@ export class FilterHelper {
   }
 
   private determineDefinition(definition: { instance: Node }): Filter | null {
-    // If the instance is not a sequence, handle it directly
-    if (definition.instance.type !== 'sequence') {
-      return this.determineExpression(definition.instance);
+    // Get the node type from the first member
+    const member = singleMember(definition.instance);
+    if (member) {
+      // If the instance is not a sequence, handle it directly
+      if (member[0] !== 'Sequence') {
+        return this.determineExpression(definition.instance);
+      }
     }
 
-    const sequence = definition.instance.attributes['Sequence'] as List;
+    const sequence = definition.instance.value['Sequence'] as List;
     if (!sequence) {
       return null;
     }
@@ -75,7 +80,7 @@ export class FilterHelper {
   }
 
   private determineSequence(sequence: List): Filter | null {
-    if (!sequence || !sequence.items) {
+    if (!sequence || !sequence.value) {
       return null;
     }
 
@@ -84,8 +89,10 @@ export class FilterHelper {
       isExclusive: true
     };
 
-    for (const item of sequence.items) {
-      const expressionFilter = this.determineExpression(item as Node);
+    for (const item of sequence.value) {
+      if (!isNode(item)) continue;
+
+      const expressionFilter = this.determineExpression(item);
       if (expressionFilter) {
         result.charSet.union(expressionFilter.charSet);
         result.isExclusive &&= expressionFilter.isExclusive;
@@ -100,25 +107,36 @@ export class FilterHelper {
   }
 
   private determineExpression(node: Node): Filter | null {
-    switch (node.type) {
-      case 'repeat':
-      case 'separated':
-      case 'andNot':
-      case 'as':
-      case 'declaration': {
-        const expr = node.attributes['Expression'] as Node;
+    // Get the node type from the first member
+    const member = singleMember(node);
+    if (!member) return null;
+
+    const nodeType = member[0];
+
+    switch (nodeType) {
+      case 'Repeat':
+      case 'Separated':
+      case 'AndNot':
+      case 'As':
+      case 'Declaration': {
+        const expr = node.value['Expression'] as Node;
+        if (!expr) return null;
         return this.determineExpression(expr);
       }
 
-      case 'or': {
+      case 'Or': {
         const result: Filter = {
           charSet: new CharSet(),
           isExclusive: true
         };
 
-        const expressions = (node.attributes['Expressions'] as List).items;
-        for (const expr of expressions) {
-          const exprFilter = this.determineExpression(expr as Node);
+        const expressions = node.value['Expressions'] as List;
+        if (!expressions || !isList(expressions)) return null;
+
+        for (const expr of expressions.value) {
+          if (!isNode(expr)) continue;
+
+          const exprFilter = this.determineExpression(expr);
           if (exprFilter) {
             result.charSet.union(exprFilter.charSet);
             result.isExclusive &&= exprFilter.isExclusive;
@@ -128,59 +146,57 @@ export class FilterHelper {
         return result;
       }
 
-      case 'group':
-      case 'optional': {
-        const sequence = node.attributes['Sequence'] as List;
+      case 'Group':
+      case 'Optional': {
+        const sequence = node.value['Sequence'] as List;
+        if (!sequence) return null;
+
         const result = this.determineSequence(sequence);
-        if (node.type === 'optional' && result) {
+        if (nodeType === 'Optional' && result) {
           result.isExclusive = false;
         }
         return result;
       }
 
-      case 'reference': {
-        const nameNode = node.attributes['Name'] as Node;
-        if (!nameNode || !nameNode.attributes || !nameNode.attributes['Value']) {
-          return null;
-        }
+      case 'Reference': {
+        const nameNode = node.value['Name'] as Node;
+        if (!nameNode) return null;
 
-        const name = nameNode.attributes['Value'] as Text;
-        if (!name || !name.value) {
-          return null;
-        }
+        const nameValue = getTextValue(nameNode, 'Value');
+        if (!nameValue) return null;
 
-        const targetGroup = this.definitions[name.value];
+        const targetGroup = this.definitions[nameValue];
         if (!targetGroup) return null;
 
         // If would recurse, add as fixup
-        if (this.evaluating.has(name.value)) {
-          let sources = this.fixups.get(name.value);
+        if (this.evaluating.has(nameValue)) {
+          let sources = this.fixups.get(nameValue);
           if (!sources) {
             sources = new Set();
-            this.fixups.set(name.value, sources);
+            this.fixups.set(nameValue, sources);
           }
           for (const evaluating of Array.from(this.evaluating)) {
-            if (evaluating !== name.value) {
+            if (evaluating !== nameValue) {
               sources.add(evaluating);
             }
           }
           return null;
         }
 
-        this.determineGroup(name.value);
+        this.determineGroup(nameValue);
         return targetGroup.filter || null;
       }
 
-      case 'range': {
-        const from = this.getCharValue(node.attributes['From'] as Node);
-        const to = this.getCharValue(node.attributes['To'] as Node);
+      case 'Range': {
+        const from = this.getCharValue(node.value['From'] as Node);
+        const to = this.getCharValue(node.value['To'] as Node);
         return {
           charSet: new CharSet({ low: from.charCodeAt(0), high: to.charCodeAt(0) }),
           isExclusive: true
         };
       }
 
-      case 'char': {
+      case 'Char': {
         const char = this.getCharValue(node);
         const code = char.charCodeAt(0);
         return {
@@ -189,12 +205,12 @@ export class FilterHelper {
         };
       }
 
-      case 'string': {
-        const value = (node.attributes['Value'] as Text).value;
-        if (!value || value.length === 0) return null;
+      case 'String': {
+        const valueText = getTextValue(node, 'Value');
+        if (!valueText || valueText.length === 0) return null;
 
         // We know value has at least one character since we checked length
-        const code = value.charCodeAt(0);
+        const code = valueText.charCodeAt(0);
         return {
           charSet: new CharSet({
             low: code,
@@ -204,30 +220,34 @@ export class FilterHelper {
         };
       }
 
-      case 'charSet': {
+      case 'CharSet': {
         const result: Filter = {
           charSet: new CharSet(),
           isExclusive: true
         };
 
-        const isAll = node.attributes['All'];
-        const isNot = node.attributes['Not'];
+        const isAll = node.value['All'];
+        const isNot = node.value['Not'];
 
         if (isAll) {
           result.charSet.union({ low: 0, high: 0xFFFF });
         } else {
-          const entries = node.attributes['Entries'] as List;
-          for (const entry of entries.items) {
-            const entryNode = entry as Node;
-            if (entryNode.type === 'range') {
-              const from = this.getCharValue(entryNode.attributes['From'] as Node);
-              const to = this.getCharValue(entryNode.attributes['To'] as Node);
+          const entries = node.value['Entries'] as List;
+          if (!entries || !isList(entries)) return null;
+
+          for (const entry of entries.value) {
+            if (!isNode(entry)) continue;
+
+            const entryType = singleMember(entry)?.[0];
+            if (entryType === 'range') {
+              const from = this.getCharValue(entry.value['From'] as Node);
+              const to = this.getCharValue(entry.value['To'] as Node);
               result.charSet.union({
                 low: from.charCodeAt(0),
                 high: to.charCodeAt(0)
               });
             } else {
-              const char = this.getCharValue(entryNode);
+              const char = this.getCharValue(entry);
               const code = char.charCodeAt(0);
               result.charSet.union({ low: code, high: code });
             }
@@ -247,14 +267,14 @@ export class FilterHelper {
   }
 
   private getCharValue(node: Node): string {
-    const index = node.attributes['Index'];
-    if (index && 'value' in index) {
+    const index = node.value['Index'];
+    if (index) {
       return String.fromCharCode(parseInt((index as Text).value));
     }
-    const charValue = node.attributes['Char'];
-    if (!charValue || !('value' in charValue)) {
+    const literalValue = node.value['Literal'];
+    if (!literalValue) {
       throw new Error('Node has no valid Char attribute');
     }
-    return (charValue as Text).value;
+    return (literalValue as Text).value;
   }
 }

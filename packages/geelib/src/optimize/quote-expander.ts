@@ -1,4 +1,5 @@
-import type { Item, List, Node, Text } from "../ast/ast.js";
+import type { Item, List, Node, Text, Member } from "../ast/ast.js";
+import { isNode, isList, isText } from "../ast/ast.js";
 import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 // Rule implementations
@@ -7,49 +8,67 @@ export class QuoteExpander implements VisitorRule {
 	name = 'QuoteExpander';
 	memberName = 'quote';
 
-	visit(node: Node, context: VisitorContext): Node | null {
-		const text = (node.attributes['Text'] as Text).value;
+	visit(member: Member, context: VisitorContext): Member | undefined {
+		const [name, item] = member;
+
+		if (!isNode(item)) {
+			return undefined;
+		}
+
+		const textItem = item.value['Text'] as Item;
+		if (!isText(textItem)) {
+			return undefined;
+		}
+
+		const text = textItem.value as string;
 
 		// Create the string/char node
 		const stringNode: Node = text.length === 1 ? {
-			type: 'char',
-			attributes: { Char: { type: 'text', value: text } as Text }
+			value: {
+				Char: { type: 'text', value: text } as Text
+			}
 		} : {
-			type: 'string',
-			attributes: { Value: { type: 'text', value: text } as Text }
+			value: {
+				Value: { type: 'text', value: text } as Text
+			}
 		};
 
 		// If no whitespace rule, just return the captured string/char
 		if (!context.whitespaceRule) {
-			return { type: 'capture', attributes: { Expression: stringNode } };
+			const captureNode: Node = {
+				value: {
+					Expression: stringNode
+				}
+			};
+			return [name, captureNode];
 		}
 
 		// Create sequence: whitespace + captured string + whitespace
-		return {
-			type: 'group',
-			attributes: {
+		const groupNode: Node = {
+			value: {
 				Sequence: {
 					type: 'list',
-					items: [
+					value: [
 						{
-							type: 'reference',
-							attributes: {
+							value: {
 								Name: { type: 'text', value: context.whitespaceRule } as Text
 							}
-						},
-						{
-							type: 'capture',
-							attributes: { Expression: stringNode }
 						} as Node,
 						{
-							type: 'reference',
-							attributes: new Map([
-								['Name', { type: 'text', value: context.whitespaceRule }]
-							])
-						}
+							value: {
+								Expression: stringNode
+							}
+						} as Node,
+						{
+							value: {
+								Name: { type: 'text', value: context.whitespaceRule } as Text
+							}
+						} as Node
 					] as Item[]
 				} as List
 			}
 		};
+
+		return [name, groupNode];
 	}
 }

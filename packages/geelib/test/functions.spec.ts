@@ -1,7 +1,7 @@
 import { expect } from 'aegir/chai';
 import { parseGrammarText, parseGrammar, parseText, parseStream, matchesText, matchesStream } from '../src/functions.js';
 import { StringStream } from '../src/string-stream.js';
-import { OptimizedGrammar } from '../src/grammar.js';
+import { OptimizedGrammar } from '../src/optimize/optimizer.js';
 
 describe('Functions', () => {
 	return;
