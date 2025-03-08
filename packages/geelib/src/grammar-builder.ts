@@ -43,23 +43,27 @@ export function buildGrammar(unit: Node): Grammar {
 	// Third pass: Validate recursiveness
 	validateRecursiveness(groups);
 
-	const whitespaceValue = getTextValue(unit, 'whitespace');
+	const whitespaceValue = getTextValue(unit, 'Whitespace');
 	if (whitespaceValue && !Object.hasOwn(groups, whitespaceValue)) {
 		throw new Error(`Whitespace rule ${whitespaceValue} not found in grammar`);
 	}
 	const whitespaceRule = whitespaceValue ?? (Object.hasOwn(groups, '_') ? '_' : undefined);
 
-	const comparerValue = getTextValue(unit, 'comparer');
+	const comparerValue = getTextValue(unit, 'Comparer');
 	const caseSensitive = comparerValue === 'sensitive';
 
-	const firstDef = definitions.value[0];
-	if (!isNode(firstDef)) {
-		throw new Error('First definition is not a node');
-	}
-	const rootName = getTextValue(firstDef, 'Name');
-	if (!rootName) {
-		throw new Error('First definition has no name');
-	}
+	// Get the root name from the Root property if it exists, otherwise use the first definition
+	const rootName = getTextValue(unit, 'Root') || (() => {
+		const firstDef = definitions.value[0];
+		if (!isNode(firstDef)) {
+			throw new Error('First definition is not a node');
+		}
+		const name = getTextValue(firstDef, 'Name');
+		if (!name) {
+			throw new Error('First definition has no name');
+		}
+		return name;
+	})();
 
 	return new Grammar(groups, rootName, { caseSensitive, whitespaceRule });
 }
@@ -231,7 +235,9 @@ function determineExpressionRecursiveness(
 ): number {
 	// Get the node type from the first member
 	const member = singleMember(node);
-	if (!member) return Recursiveness.None;
+	if (!member) {
+		return Recursiveness.None;
+	}
 
 	const nodeType = member[0];
 
@@ -250,7 +256,7 @@ function determineExpressionRecursiveness(
 			const expressions = node.value['Expressions'] as List;
 			if (!expressions || !isList(expressions)) return Recursiveness.None;
 
-			let result = Recursiveness.IsExclusive;
+			let result = Recursiveness.None;
 			for (const expr of expressions.value) {
 				if (!isNode(expr)) continue;
 
@@ -262,8 +268,14 @@ function determineExpressionRecursiveness(
 					references,
 					mask
 				);
-				result = (result | (expressionResult & ~Recursiveness.IsExclusive))
-					& (expressionResult | ~Recursiveness.IsExclusive);
+
+				// Combine recursiveness flags
+				result |= (expressionResult & ~Recursiveness.IsExclusive);
+
+				// If any expression is exclusive, the result is exclusive
+				if (expressionResult & Recursiveness.IsExclusive) {
+					result |= Recursiveness.IsExclusive;
+				}
 			}
 			return result;
 		}
@@ -282,8 +294,27 @@ function determineExpressionRecursiveness(
 		}
 
 		case 'Reference': {
-			const nameValue = getTextValue(node.value['Name'] as Node, 'Value');
-			if (!nameValue) return Recursiveness.None;
+			const referenceNode = node.value['Reference'];
+			if (!referenceNode || !isNode(referenceNode)) {
+				return Recursiveness.None;
+			}
+
+			const nameNode = referenceNode.value['Name'];
+
+			// Extract the name value directly from the nameNode
+			let nameValue: string | undefined;
+
+			if (isNode(nameNode)) {
+				nameValue = getTextValue(nameNode as Node, 'Value');
+			} else if (nameNode && typeof nameNode === 'object' && 'value' in nameNode) {
+				nameValue = String(nameNode.value);
+			} else if (nameNode) {
+				nameValue = String(nameNode);
+			}
+
+			if (!nameValue) {
+				return Recursiveness.None;
+			}
 
 			if (nameValue === rootName) {
 				// Found a recursive reference
@@ -327,6 +358,13 @@ function determineExpressionRecursiveness(
 		}
 
 		default:
+			// For unknown node types, try to process their children
+			for (const [key, value] of Object.entries(node.value)) {
+				if (isList(value)) {
+					return determineSequenceRecursiveness(rootName, value, groups, visited, references, mask);
+				}
+			}
+
 			return returnTerminal(mask);
 	}
 }

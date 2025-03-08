@@ -4,7 +4,7 @@ import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 export class SequenceFlattener implements VisitorRule {
 	name = 'SequenceFlattener';
-	memberName = ['definition', 'group'];
+	memberName = ['Definition', 'Group'];
 
 	visit(member: Member, context: VisitorContext): Member | undefined {
 		const [name, item] = member;

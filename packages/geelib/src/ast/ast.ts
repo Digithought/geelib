@@ -2,8 +2,8 @@ import { undefinedIf } from "../utility/undefined-if.js";
 import { GrammarError } from "../errors.js";
 
 export type Span = {
-	start: number;
-	end: number;
+	start: number; // start is inclusive
+	end: number; // end is exclusive
 }
 
 export type Component = {

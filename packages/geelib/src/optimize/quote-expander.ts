@@ -6,7 +6,7 @@ import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 export class QuoteExpander implements VisitorRule {
 	name = 'QuoteExpander';
-	memberName = 'quote';
+	memberName = 'Quote';
 
 	visit(member: Member, context: VisitorContext): Member | undefined {
 		const [name, item] = member;
@@ -29,7 +29,7 @@ export class QuoteExpander implements VisitorRule {
 			}
 		} : {
 			value: {
-				Value: { type: 'text', value: text } as Text
+				String: { type: 'text', value: text } as Text
 			}
 		};
 

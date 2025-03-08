@@ -4,12 +4,17 @@ import { item, getRequiredAttribute, getTextValue, getRequiredTextValue, isList,
 import { ParserContext } from './parser-context.js';
 import type { Definition } from './definition.js';
 import { Associativity } from './definition.js';
-import type { OptimizedGrammar } from './optimize/optimizer.js';
+import { OptimizedGrammar } from './optimize/optimizer.js';
 import { GrammarError, ParserError } from './errors.js';
 import { captured, mergeResults, uncaptured } from './capture.js';
+import { CharSet } from './types.js';
 
 export class Parser {
   constructor(public readonly grammar: OptimizedGrammar) {
+    // Ensure the grammar is optimized
+    if (!(grammar instanceof OptimizedGrammar)) {
+      throw new GrammarError('Parser requires an optimized grammar. Please use the optimize() function to optimize your grammar before passing it to the Parser.');
+    }
   }
 
   /**
@@ -130,7 +135,7 @@ export class Parser {
 
         if (isNodeDefinition) {
           // Create a record with the definition name as the type
-          return item({ [definition.name]: result });
+          return item({ [definition.name]: result }, result.span);
         }
       }
 
@@ -162,6 +167,18 @@ export class Parser {
     });
   }
 
+  /**
+   * Parses an expression node.
+   *
+   * Note: 'Quote' expressions are not handled directly by the parser.
+   * They are transformed by the QuoteExpander during the optimization phase
+   * into either 'String' or 'Char' expressions with appropriate whitespace handling.
+   * This is why there is no 'case' for Quote in this switch statement.
+   *
+   * @param context Parser context
+   * @param node Expression node to parse
+   * @returns Parsed item or undefined if parsing failed
+   */
   private parseExpression(context: ParserContext, node: Node): Item | undefined {
     // Use type assertion to fix type issues
     const typeMember = singleMember(node);
@@ -176,7 +193,7 @@ export class Parser {
 
     switch (type) {
       case 'Repeat': return this.parseRepeatExpression(context, expr);
-      case 'Separated': return this.parseSeparatedRepeatExpression(context, expr);
+      case 'Separated': return this.parseSeparatedExpression(context, expr);
       case 'AndNot': return this.parseAndNotExpression(context, expr);
       case 'As': return this.parseAsExpression(context, expr);
       case 'Declaration': return this.parseDeclarationExpression(context, expr);
@@ -189,6 +206,8 @@ export class Parser {
       case 'String': return this.parseStringExpression(context, expr);
       case 'CharSet': return this.parseCharSetExpression(context, expr);
       case 'Capture': return this.parseCaptureExpression(context, expr);
+      case 'Quote':
+        throw new GrammarError('Quote expressions should be transformed by the optimizer before reaching the parser. Make sure you are using an optimized grammar.');
       default:
         throw new GrammarError(`Invalid grammar: Invalid expression node type (${type})`);
     }
@@ -248,14 +267,14 @@ export class Parser {
     return captured(this.parseExpression(context, expression));
   }
 
-  private parseSeparatedRepeatExpression(context: ParserContext, node: Node): Item | undefined {
+  private parseSeparatedExpression(context: ParserContext, node: Node): Item | undefined {
     const [, expressionItem] = getRequiredAttribute(node, 'Expression',
-      'Invalid grammar: SeparatedRepeat expression missing Expression');
+      'Invalid grammar: Separated expression missing Expression');
     const [, separatorItem] = getRequiredAttribute(node, 'Separator',
-      'Invalid grammar: SeparatedRepeat expression missing Separator');
+      'Invalid grammar: Separated expression missing Separator');
 
-    if (!isNode(expressionItem)) throw new GrammarError('Invalid grammar: SeparatedRepeat expression has invalid Expression');
-    if (!isNode(separatorItem)) throw new GrammarError('Invalid grammar: SeparatedRepeat expression has invalid Separator');
+    if (!isNode(expressionItem)) throw new GrammarError('Invalid grammar: Separated expression has invalid Expression');
+    if (!isNode(separatorItem)) throw new GrammarError('Invalid grammar: Separated expression has invalid Separator');
 
     return context.parseTransact(() => {
       const results: Item[] = [];
@@ -315,10 +334,11 @@ export class Parser {
   private parseAsExpression(context: ParserContext, node: Node): Item | undefined {
     const [, expressionItem] = getRequiredAttribute(node, 'Expression',
       'Invalid grammar: As expression missing Expression');
-    const valueText = getRequiredTextValue(node, 'Value',
-      'Invalid grammar: As expression missing Value');
+		if (!isNode(expressionItem)) throw new GrammarError('Invalid grammar: As expression has invalid Expression');
 
-    if (!isNode(expressionItem)) throw new GrammarError('Invalid grammar: As expression has invalid Expression');
+		const [, valueString] = getRequiredAttribute(node, 'Value', 'Invalid grammar: As expression missing Value');
+		const valueText = getStringText(valueString);
+
 
     return context.parseTransact(() => {
       // Parse the expression
@@ -376,24 +396,24 @@ export class Parser {
   }
 
   private parseGroupExpression(context: ParserContext, node: Node): Item | undefined {
-    const [, expressionItem] = getRequiredAttribute(node, 'Expression',
-      'Invalid grammar: Group expression missing Expression');
+    const [, sequence] = getRequiredAttribute(node, 'Sequence',
+      'Invalid grammar: Group expression missing Sequence');
 
-    if (!isNode(expressionItem)) throw new GrammarError('Invalid grammar: Group expression has invalid Expression');
+    if (!isList(sequence)) throw new GrammarError('Invalid grammar: Group expression has invalid Sequence');
 
-    return this.parseExpression(context, expressionItem);
+    return this.parseSequence(context, sequence);
   }
 
   private parseOptionalExpression(context: ParserContext, node: Node): Item | undefined {
-    const [, expressionItem] = getRequiredAttribute(node, 'Expression',
-      'Invalid grammar: Optional expression missing Expression');
+    const [, sequence] = getRequiredAttribute(node, 'Sequence',
+      'Invalid grammar: Optional expression missing Sequence');
 
-    if (!isNode(expressionItem)) throw new GrammarError('Invalid grammar: Optional expression has invalid Expression');
+    if (!isList(sequence)) throw new GrammarError('Invalid grammar: Optional expression has invalid Sequence');
 
-    const result = this.parseExpression(context, expressionItem);
+    const result = this.parseSequence(context, sequence);
 
     // Optional always succeeds, but may return empty text
-    return result || item('');
+    return result || item('', { start: context.reader.position, end: context.reader.position });
   }
 
   private parseReferenceExpression(context: ParserContext, node: Node): Item | undefined {
@@ -416,7 +436,7 @@ export class Parser {
 
 		// Consume the character
 		context.reader.next();
-		return item(char);
+		return item(char, { start: context.reader.position - 1, end: context.reader.position });
   }
 
   private parseCharExpression(context: ParserContext, node: Node): Item | undefined {
@@ -433,80 +453,159 @@ export class Parser {
 		// Consume the character
 		context.reader.next();
 
-		return item(char);
+		return item(char, { start: context.reader.position - 1, end: context.reader.position });
   }
 
   private parseStringExpression(context: ParserContext, node: Node): Item | undefined {
-    const stringText = getRequiredTextValue(node, 'Value',
-      'Invalid grammar: String expression missing Value');
+    const stringText = getRequiredTextValue(node, 'Text',
+      'Invalid grammar: String expression missing Text');
 
+		let readString = '';
     return context.parseTransact(() => {
+			let readChar: string;
       // Try to match each character in the string
       for (let i = 0; i < stringText.length; i++) {
-        if (context.reader.eof || context.reader.readThenNext() !== stringText[i]) {
+        if (context.reader.eof || (readChar = context.reader.readThenNext()) !== stringText[i]) {
           return undefined;
         }
+        readString += readChar;
       }
 
       // Return the canonical matched string
-      return item(stringText);
+      return item(readString, { start: context.reader.position - stringText.length, end: context.reader.position });
     });
   }
 
+  /**
+   * Parses a CharSet expression.
+   *
+   * A CharSet expression can be in one of two forms:
+   * 1. {?} - Matches any single character (All flag)
+   * 2. {entries} - Matches any character in the set of entries
+   *
+   * Both forms can be negated with the Not flag (!):
+   * 1. {!?} - Never matches anything (logical opposite of "match any character")
+   * 2. {!entries} - Matches any character NOT in the set of entries
+   *
+   * Entries can be individual characters or ranges:
+   * - {a, b, c} - Matches 'a', 'b', or 'c'
+   * - {a..z} - Matches any lowercase letter
+   * - {a..z, A..Z, 0..9} - Matches any alphanumeric character
+   *
+   * An empty charset {} never matches anything, while a negated empty charset {!} matches any character.
+   *
+   * @param context Parser context
+   * @param node CharSet expression node
+   * @returns Parsed item or undefined if parsing failed
+   */
   private parseCharSetExpression(context: ParserContext, node: Node): Item | undefined {
-    const charSetText = getRequiredTextValue(node, 'Value',
-      'Invalid grammar: CharSet expression missing Value');
     const not = Boolean(getTextValue(node, 'Not'));
-		const all = Boolean(getTextValue(node, 'All'));
-		const entries = getAttribute(node, 'Entries');
+    const all = Boolean(getTextValue(node, 'All'));
+    const entries = getAttribute(node, 'Entries');
 
-		if (all) {
-			if (not) {
-				if (context.reader.eof) {
-					return item('', { start: context.reader.position, end: context.reader.position });
-				} else {
-					return undefined;
-				}
-			}
-			if (!context.reader.eof) {
-				const char = context.reader.read();
-				return item(char, { start: context.reader.position - 1, end: context.reader.position });
-			}
-			return undefined;
-		}
-		if (!isList(entries?.[1])) {
-			throw new GrammarError('Invalid grammar: CharSet expression Entries is not present or not a list');
-		}
-		const entryList = entries[1].value;
-		if (entryList.length === 0) {
-			return undefined;
-		}
+    // Validate that we don't have both All and Entries
+    if (all && entries) {
+      throw new GrammarError('Invalid grammar: CharSet expression cannot have both All and Entries');
+    }
 
-		const startPos = context.reader.position;
-		let text = '';
+    // Handle the "match any character" case
+    if (all) {
+      // If negated, or EOF, it should never match anything (always fail)
+      if (not || context.reader.eof) {
+        return undefined;
+      }
+
+      const char = context.reader.readThenNext();
+      return item(char, { start: context.reader.position - 1, end: context.reader.position });
+    }
+
+    // Handle the entries case
+    if (!isList(entries?.[1])) {
+      throw new GrammarError('Invalid grammar: CharSet expression Entries is not present or not a list');
+    }
+
+    const entryList = entries[1].value;
+    if (entryList.length === 0) {
+      // Empty charset - if not negated, it never matches
+      // If negated, it always matches, but we need a character to consume
+      if (not && !context.reader.eof) {
+        const char = context.reader.readThenNext();
+        return item(char, { start: context.reader.position - 1, end: context.reader.position });
+      }
+      return undefined;
+    }
+
+    // Create a CharSet from the entries
+    const charset = new CharSet();
+
+    // Process each entry and add it to the charset
+    for (const entry of entryList) {
+      if (!isNode(entry)) {
+        throw new GrammarError('Invalid grammar: Invalid CharSet entry - not a node');
+      }
+
+      const range = entry.value['Range'];
+      if (isNode(range)) {
+        // Handle range entry
+        const fromNode = getRequiredAttribute(range, 'From',
+          'Invalid grammar: Range expression missing From')[1] as Node;
+        const toNode = getRequiredAttribute(range, 'To',
+          'Invalid grammar: Range expression missing To')[1] as Node;
+
+        if (!isNode(fromNode) || !isNode(toNode)) {
+          throw new GrammarError('Invalid grammar: Range expression From and To must be nodes');
+        }
+
+        // Get character values from the Char nodes
+        const fromChar = getCharValue(fromNode);
+        const toChar = getCharValue(toNode);
+
+        // Add the range to the charset
+        charset.union({
+          low: fromChar.charCodeAt(0),
+          high: toChar.charCodeAt(0)
+        });
+      } else {
+        const char = entry.value['Char'];
+        if (!isNode(char)) {
+          throw new GrammarError('Invalid grammar: Invalid CharSet entry - not a char or range');
+        }
+
+        // Get the character value
+        const charValue = getCharValue(char);
+
+        // Add the single character as a range
+        charset.union({
+          low: charValue.charCodeAt(0),
+          high: charValue.charCodeAt(0)
+        });
+      }
+    }
+
+    // If negated, invert the charset
+    if (not) {
+      charset.invert();
+    }
+
+    const startPos = context.reader.position;
+
     return context.parseTransact(() => {
-			for (const entry of entryList) {
-				if (!isNode(entry)) {
-					throw new GrammarError('Invalid grammar: Invalid CharSet entry - not a node');
-				}
-				if (context.reader.eof) return undefined;
-				const read = context.reader.readThenNext();
-				const range = entry.value['Range'];
-				if (isNode(range)) {
-					if (!rangeMatches(context, read, range)) {
-						return undefined;
-					}
-				} else {
-					const char = entry.value['Char'];
-					if (!isNode(char)) throw new GrammarError('Invalid grammar: Invalid CharSet entry - not a char or range');
-					if (!charMatches(context, read, char)) {
-						return undefined;
-					}
-				}
-				text += read;
-			}
+      // Check if we're at EOF
+      if (context.reader.eof) {
+        return undefined;
+      }
 
-      return item(text, { start: startPos, end: context.reader.position - 1 });
+      // Read the character and check if it matches
+      const char = context.reader.read();
+
+      if (!charset.matches(char)) {
+        return undefined;
+      }
+
+      // Consume the character
+      context.reader.next();
+
+      return item(char, { start: startPos, end: context.reader.position - 1 });
     });
   }
 }
@@ -535,22 +634,50 @@ function charMatches(context: ParserContext, char: string, node: Node): boolean 
 }
 
 function rangeMatches(context: ParserContext, char: string, node: Node): boolean {
-	const fromText = getRequiredTextValue(node, 'From',
-		'Invalid grammar: Range expression missing From');
-	const toText = getRequiredTextValue(node, 'To',
-		'Invalid grammar: Range expression missing To');
+	const fromNode = getRequiredAttribute(node, 'From',
+		'Invalid grammar: Range expression missing From')[1] as Node;
+	const toNode = getRequiredAttribute(node, 'To',
+		'Invalid grammar: Range expression missing To')[1] as Node;
 
-	if (fromText.length !== 1 || toText.length !== 1) {
-		throw new GrammarError('Invalid grammar: Range expression From and To must be single characters');
+	if (!isNode(fromNode) || !isNode(toNode)) {
+		throw new GrammarError('Invalid grammar: Range expression From and To must be nodes');
 	}
 
-	const fromChar = fromText.charCodeAt(0);
-	const toChar = toText.charCodeAt(0);
+	// Get character values from the Char nodes
+	const fromChar = getCharValue(fromNode);
+	const toChar = getCharValue(toNode);
 
+	// Check if the character is in the range
 	const charCode = char.charCodeAt(0);
-	if (charCode < fromChar || charCode > toChar) {
-		return false;
+	const fromCharCode = fromChar.charCodeAt(0);
+	const toCharCode = toChar.charCodeAt(0);
+
+	return charCode >= fromCharCode && charCode <= toCharCode;
+}
+
+/**
+ * Helper function to extract a character value from a Char node
+ */
+function getCharValue(node: Node): string {
+	const indexValue = getNumberValue(node, 'Index');
+	const literalValue = getTextValue(node, 'Literal');
+
+	if ((indexValue !== undefined && literalValue !== undefined) || (indexValue === undefined && literalValue === undefined)) {
+		throw new GrammarError('Invalid grammar: Char expression must have either Index or Literal, but not both');
 	}
 
-	return true;
+	if (indexValue !== undefined) {
+		return String.fromCharCode(indexValue);
+	} else {
+		if (literalValue && literalValue.length !== 1) {
+			throw new GrammarError('Invalid grammar: Char expression Literal must be a single character');
+		}
+		return literalValue!;
+	}
+}
+
+function getStringText(item: Item): string {
+	if (!isNode(item)) throw new GrammarError('Invalid grammar: String expression is not a node');
+	const [, stringValue] = getRequiredAttribute(item, 'String', 'Invalid grammar: String expression missing String');
+	return getRequiredTextValue(stringValue, 'Text', 'Invalid grammar: String expression missing Text');
 }

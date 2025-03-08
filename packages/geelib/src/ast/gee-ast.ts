@@ -167,7 +167,7 @@ export const geeAst = item({ Unit: item({
 								item({ Reference: item({ Name: item('Repeat') }) }),
 								item({ Reference: item({ Name: item('As') }) }),
 								item({ Reference: item({ Name: item('AndNot') }) }),
-								item({ Reference: item({ Name: item('SeparatedRepeat') }) }),
+								item({ Reference: item({ Name: item('Separated') }) }),
 								item({ Reference: item({ Name: item('Capture') }) })
 							])
 						}) })
@@ -202,7 +202,7 @@ export const geeAst = item({ Unit: item({
 					Sequence: item([
 						item({ Declaration: item({
 							Name: item('Expressions'),
-							Expression: item({ SeparatedRepeat: item({
+							Expression: item({ Separated: item({
 								Expression: item({ Reference: item({ Name: item('expression') }) }),
 								Separator: item({ Quote: item({ Text: item('|') }) })
 							}) })
@@ -257,7 +257,7 @@ export const geeAst = item({ Unit: item({
 			])
 		}),
 		item({
-			Name: item('SeparatedRepeat'),
+			Name: item('Separated'),
 			Type: item(':='),
 			Sequence: item([
 				item({ Sequence: item({
@@ -302,7 +302,7 @@ export const geeAst = item({ Unit: item({
 						}) }),
 						item({ Quote: item({ Text: item('&!') }) }),
 						item({ Declaration: item({
-							Name: item('NotExpression'),
+							Name: item('Not'),
 							Expression: item({ Reference: item({ Name: item('expression') }) })
 						}) })
 					])
@@ -375,7 +375,7 @@ export const geeAst = item({ Unit: item({
 						}) }),
 						item({ AndNot: item({
 							Expression: item({ Reference: item({ Name: item('identifier') }) }),
-							NotExpression: item({ Or: item({
+							Not: item({ Or: item({
 								Expressions: item([
 									item({ Reference: item({ Name: item('Definition') }) }),
 									item({ Reference: item({ Name: item('Declaration') }) })
@@ -405,7 +405,7 @@ export const geeAst = item({ Unit: item({
 										}) }),
 										item({ AndNot: item({
 											Expression: item({ CharSet: item({ All: item('true') }) }),
-											NotExpression: item({ String: item({ Text: item('"') }) })
+											Not: item({ String: item({ Text: item('"') }) })
 										}) })
 									])
 								}) })
@@ -436,7 +436,7 @@ export const geeAst = item({ Unit: item({
 										}) }),
 										item({ AndNot: item({
 											Expression: item({ CharSet: item({ All: item('true') }) }),
-											NotExpression: item({ String: item({ Text: item('\'') }) })
+											Not: item({ String: item({ Text: item('\'') }) })
 										}) })
 									])
 								}) })
@@ -505,7 +505,7 @@ export const geeAst = item({ Unit: item({
 										item({ String: item({ Text: item('\'') }) }),
 										item({ AndNot: item({
 											Expression: item({ Reference: item({ Name: item('identifier') }) }),
-											NotExpression: item({ String: item({ Text: item('\'\'') }) })
+											Not: item({ String: item({ Text: item('\'\'') }) })
 										}) })
 									])
 								}) })
@@ -539,7 +539,7 @@ export const geeAst = item({ Unit: item({
 								}) }),
 								item({ Declaration: item({
 									Name: item('Entries'),
-									Expression: item({ SeparatedRepeat: item({
+									Expression: item({ Separated: item({
 										Expression: item({ Or: item({
 											Expressions: item([
 												item({ Reference: item({ Name: item('Range') }) }),
@@ -692,7 +692,7 @@ export const geeAst = item({ Unit: item({
 									item({ Reference: item({ Name: item('blockComment') }) }),
 									item({ AndNot: item({
 										Expression: item({ CharSet: item({ All: item('true') }) }),
-										NotExpression: item({ String: item({ Text: item('*/') }) })
+										Not: item({ String: item({ Text: item('*/') }) })
 									}) })
 								])
 							}) })

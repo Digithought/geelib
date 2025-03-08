@@ -5,7 +5,7 @@ import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 export class GroupSimplifier implements VisitorRule {
 	name = 'GroupSimplifier';
-	memberName = 'group';
+	memberName = 'Group';
 
 	visit(member: Member, context: VisitorContext): Member | undefined {
 		const [name, item] = member;

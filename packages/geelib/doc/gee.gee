@@ -40,7 +40,7 @@ expression 0 =
 	Or
 
 expression 1 =
-	Repeat | As | AndNot | SeparatedRepeat | Capture
+	Repeat | As | AndNot | Separated | Capture
 
 Declaration :=
 	Name : identifier ":" Expression : expression
@@ -51,14 +51,14 @@ Or :=
 Repeat :=
 	Expression : expression "*" [ Count : integer | (From : integer ".." To : (integer | "n")) ]
 
-SeparatedRepeat :=
+Separated :=
 	Expression : expression "^" Separator : expression
 
 Capture :=
 	Expression : expression "+"
 
 AndNot :=
-	Expression : expression "&!" NotExpression : expression
+	Expression : expression "&!" Not : expression
 
 As :=
 	Expression : expression "as" Value : String

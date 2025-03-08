@@ -18,7 +18,7 @@ import type { VisitorRule, VisitorContext } from '../visitor.js';
  */
 export class CaptureSimplifier implements VisitorRule {
 	name = 'CaptureSimplifier';
-	memberName = 'capture';
+	memberName = 'Capture';
 
 	visit(member: Member, context: VisitorContext): Member | undefined {
 		const [name, item] = member;

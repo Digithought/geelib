@@ -6,6 +6,8 @@ import { item } from '../src/ast/ast.js';
 import { optimize } from '../src/optimize/optimizer.js';
 import type { Item, Node, Text } from '../src/ast/ast.js';
 import { isText } from "../src/ast/ast.js";
+import { isList, isNode } from "../src/ast/ast.js";
+import { GrammarError } from '../src/errors.js';
 
 describe('Parser - Terminal Tests', () => {
   describe('Character terminals', () => {
@@ -17,7 +19,7 @@ describe('Parser - Terminal Tests', () => {
             Name: item('Test'),
             Type: item(':='),
             Sequence: item([
-              item({ Index: item('65') }) // ASCII 'A'
+              item({ Char: item({ Index: item('65') }) }) // ASCII 'A'
             ])
           })
         ]),
@@ -50,7 +52,7 @@ describe('Parser - Terminal Tests', () => {
             Name: item('Test'),
             Type: item(':='),
             Sequence: item([
-              item({ Literal: item('B') })
+              item({ Char: item({ Literal: item('B') }) })
             ])
           })
         ]),
@@ -84,8 +86,8 @@ describe('Parser - Terminal Tests', () => {
             Type: item(':='),
             Sequence: item([
               item({
-                string: item({
-                  Value: item('hello')
+                String: item({
+                  Text: item('hello')
                 })
               })
             ])
@@ -119,79 +121,7 @@ describe('Parser - Terminal Tests', () => {
       }
     });
 
-    it('should parse a quoted string', () => {
-      const ast = item({
-        Definitions: item([
-          item({
-            Name: item('Test'),
-            Type: item(':='),
-            Sequence: item([
-              item({
-                quoted: item({
-                  Value: item('hello')
-                })
-              })
-            ])
-          })
-        ]),
-        Root: item('Test')
-      });
-
-      const grammar = buildGrammar(ast);
-      const optimized = optimize(grammar);
-      const parser = new Parser(optimized);
-
-      const input = '"hello"';
-      const stream = new StringStream(input);
-      const result = parser.parse(stream);
-
-      expect(result).to.not.be.null;
-      if (result) {
-        // Use type assertion
-        const nodeValue = result.value as Record<string, Item>;
-        expect(nodeValue).to.have.property('Test');
-        const testNode = nodeValue['Test']!;
-        const contentAttr = (testNode.value as Record<string, Item>)['Content'] as Text;
-        expect(contentAttr.value).to.equal('hello');
-      }
-    });
-
-    it('should handle escaped quotes in quoted strings', () => {
-      const ast = item({
-        Definitions: item([
-          item({
-            Name: item('Test'),
-            Type: item(':='),
-            Sequence: item([
-              item({
-                quoted: item({
-                  Value: item('hello "world"')
-                })
-              })
-            ])
-          })
-        ]),
-        Root: item('Test')
-      });
-
-      const grammar = buildGrammar(ast);
-      const optimized = optimize(grammar);
-      const parser = new Parser(optimized);
-
-      const input = '"hello \\"world\\""';
-      const stream = new StringStream(input);
-      const result = parser.parse(stream);
-
-      expect(result).to.not.be.null;
-      if (result) {
-        // Use type assertion
-        const nodeValue = result.value as Record<string, Item>;
-        expect(nodeValue).to.have.property('Test');
-        const testNode = nodeValue['Test']!;
-        const contentAttr = (testNode.value as Record<string, Item>)['Content'] as Text;
-        expect(contentAttr.value).to.equal('hello "world"');
-      }
-    });
+    // Test for Quote expansion is moved to a separate test file
   });
 
   describe('Character set terminals', () => {
@@ -203,11 +133,11 @@ describe('Parser - Terminal Tests', () => {
             Type: item(':='),
             Sequence: item([
               item({
-                charSet: item({
+                CharSet: item({
                   Entries: item([
-                    item({ Literal: item('A') }),
-                    item({ Literal: item('B') }),
-                    item({ Literal: item('C') })
+                    item({ Char: item({ Literal: item('A') }) }),
+                    item({ Char: item({ Literal: item('B') }) }),
+                    item({ Char: item({ Literal: item('C') }) })
                   ])
                 })
               })
@@ -250,12 +180,12 @@ describe('Parser - Terminal Tests', () => {
             Type: item(':='),
             Sequence: item([
               item({
-                charSet: item({
+                CharSet: item({
                   Not: item('true'),
                   Entries: item([
-                    item({ Literal: item('A') }),
-                    item({ Literal: item('B') }),
-                    item({ Literal: item('C') })
+                    item({ Char: item({ Literal: item('A') }) }),
+                    item({ Char: item({ Literal: item('B') }) }),
+                    item({ Char: item({ Literal: item('C') }) })
                   ])
                 })
               })
@@ -298,7 +228,7 @@ describe('Parser - Terminal Tests', () => {
             Type: item(':='),
             Sequence: item([
               item({
-                range: item({
+                Range: item({
                   From: item({ Literal: item('0') }),
                   To: item({ Literal: item('9') })
                 })
@@ -341,7 +271,11 @@ describe('Parser - Terminal Tests', () => {
             Name: item('Test'),
             Type: item(':='),
             Sequence: item([
-              item({ Any: item('true') })
+              item({
+                CharSet: item({
+                  All: item('true')
+                })
+              })
             ])
           })
         ]),
@@ -379,6 +313,110 @@ describe('Parser - Terminal Tests', () => {
         expect((testNode.value as string)).to.equal('5');
       }
     });
+
+    it('should handle empty charset (never matches)', () => {
+      const ast = item({
+        Definitions: item([
+          item({
+            Name: item('Test'),
+            Type: item(':='),
+            Sequence: item([
+              item({
+                CharSet: item({
+                  Entries: item([])
+                })
+              })
+            ])
+          })
+        ]),
+        Root: item('Test')
+      });
+
+      const grammar = buildGrammar(ast);
+      const optimized = optimize(grammar);
+      const parser = new Parser(optimized);
+
+      // Empty charset should never match anything
+      const input = 'X';
+      const stream = new StringStream(input);
+      const result = parser.parse(stream);
+
+      expect(result).to.be.null;
+    });
+
+    it('should handle negated empty charset (matches any character)', () => {
+      const ast = item({
+        Definitions: item([
+          item({
+            Name: item('Test'),
+            Type: item(':='),
+            Sequence: item([
+              item({
+                CharSet: item({
+                  Not: item('true'),
+                  Entries: item([])
+                })
+              })
+            ])
+          })
+        ]),
+        Root: item('Test')
+      });
+
+      const grammar = buildGrammar(ast);
+      const optimized = optimize(grammar);
+      const parser = new Parser(optimized);
+
+      // Negated empty charset should match any character
+      const input = 'X';
+      const stream = new StringStream(input);
+      const result = parser.parse(stream);
+
+      expect(result).to.not.be.null;
+      if (result) {
+        // Use type assertion
+        const nodeValue = result.value as Record<string, Item>;
+        expect(nodeValue).to.have.property('Test');
+        const testNode = nodeValue['Test']!;
+        expect((testNode.value as string)).to.equal('X');
+      }
+
+      // But it should not match EOF
+      const emptyStream = new StringStream('');
+      const emptyResult = parser.parse(emptyStream);
+      expect(emptyResult).to.be.null;
+    });
+
+    it('should throw error for charset with both All and Entries', () => {
+      const ast = item({
+        Definitions: item([
+          item({
+            Name: item('Test'),
+            Type: item(':='),
+            Sequence: item([
+              item({
+                CharSet: item({
+                  All: item('true'),
+                  Entries: item([
+                    item({ Char: item({ Literal: item('A') }) })
+                  ])
+                })
+              })
+            ])
+          })
+        ]),
+        Root: item('Test')
+      });
+
+      const grammar = buildGrammar(ast);
+      const optimized = optimize(grammar);
+      const parser = new Parser(optimized);
+
+      const input = 'X';
+      const stream = new StringStream(input);
+
+      expect(() => parser.parse(stream)).to.throw(GrammarError, 'Invalid grammar: CharSet expression cannot have both All and Entries');
+    });
   });
 
   describe('Character class terminals', () => {
@@ -389,7 +427,7 @@ describe('Parser - Terminal Tests', () => {
             Name: item('Test'),
             Type: item(':='),
             Sequence: item([
-              item({ Digit: item('true') })
+              item({ Char: item({ Index: item('53') }) })
             ])
           })
         ]),
@@ -428,7 +466,7 @@ describe('Parser - Terminal Tests', () => {
             Name: item('Test'),
             Type: item(':='),
             Sequence: item([
-              item({ Alpha: item('true') })
+              item({ Char: item({ Literal: item('a') }) })
             ])
           })
         ]),

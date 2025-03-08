@@ -5,7 +5,7 @@ import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 export class OptionalSimplifier implements VisitorRule {
 	name = 'OptionalSimplifier';
-	memberName = 'optional';
+	memberName = 'Optional';
 
 	visit(member: Member, context: VisitorContext): Member | undefined {
 		const [name, item] = member;

@@ -24,15 +24,36 @@ export interface CharRange {
   high: number;
 }
 
+/**
+ * Represents a set of character ranges.
+ *
+ * CharSet is used to efficiently represent and manipulate sets of characters
+ * for pattern matching. It stores characters as ranges of character codes,
+ * and provides methods to add ranges, check if a character is in the set,
+ * and invert the set.
+ *
+ * Character ranges are automatically merged when they overlap or are adjacent,
+ * which optimizes the representation and improves matching performance.
+ */
 export class CharSet {
   private ranges: CharRange[] = [];
 
+  /**
+   * Creates a new CharSet, optionally with an initial range.
+   *
+   * @param range Optional initial character range to add to the set
+   */
   constructor(range?: CharRange) {
     if (range) {
       this.ranges.push(range);
     }
   }
 
+  /**
+   * Adds a character range or another CharSet to this set.
+   *
+   * @param value A CharRange or CharSet to add to this set
+   */
   union(value: CharRange | CharSet): void {
     if ('ranges' in value) {
       value.ranges.forEach(r => this.unionRange(r));
@@ -41,6 +62,11 @@ export class CharSet {
     }
   }
 
+  /**
+   * Adds a character range to this set, merging with existing ranges if needed.
+   *
+   * @param value Character range to add
+   */
   private unionRange(value: CharRange): void {
     // Find overlapping or adjacent ranges
     const overlapping: CharRange[] = [];
@@ -67,11 +93,26 @@ export class CharSet {
     this.ranges.sort((a, b) => a.low - b.low);
   }
 
+  /**
+   * Checks if a character is in this set.
+   *
+   * @param char Character to check
+   * @returns True if the character is in the set, false otherwise
+   */
   matches(char: string): boolean {
     const code = char.charCodeAt(0);
     return this.ranges.some(r => code >= r.low && code <= r.high);
   }
 
+  /**
+   * Inverts this character set.
+   *
+   * After inversion, the set will match all characters that it didn't match before,
+   * and won't match any characters that it did match before.
+   *
+   * An empty set becomes a set that matches all characters (0x0000-0xFFFF).
+   * A set that matches all characters becomes an empty set.
+   */
   invert(): void {
     if (this.ranges.length === 0) {
       this.ranges.push({ low: 0, high: 0xFFFF });

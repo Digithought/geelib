@@ -18,16 +18,16 @@ describe('Parser - Expression Tests', () => {
             Type: item(':='),
             Sequence: item([
               item({
-                or: item({
+                Or: item({
                   Expressions: item([
                     item({
-                      string: item({
-                        Value: item('hello')
+                      String: item({
+                        Text: item('hello')
                       })
                     }),
                     item({
-                      string: item({
-                        Value: item('world')
+                      String: item({
+                        Text: item('world')
                       })
                     })
                   ])
@@ -50,14 +50,12 @@ describe('Parser - Expression Tests', () => {
 
       expect(result1).to.not.be.null;
       if (result1) {
-        // Use type assertion to tell TypeScript that result1.value is a Record<string, Item>
-        const testNode = (result1.value as Record<string, Item>)['Test']!;
-        expect(testNode).to.exist;
-        const contentItem = testNode.value as Record<string, Item>;
-        expect(contentItem).to.have.property('Content');
-        const content = contentItem['Content']!;
-        expect(isText(content)).to.be.true;
-        expect((content as Text).value).to.equal('hello');
+        const testNode = result1.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('hello');
+        }
       }
 
       // Test with the second alternative
@@ -67,14 +65,12 @@ describe('Parser - Expression Tests', () => {
 
       expect(result2).to.not.be.null;
       if (result2) {
-        // Use type assertion to tell TypeScript that result2.value is a Record<string, Item>
-        const testNode = (result2.value as Record<string, Item>)['Test']!;
-        expect(testNode).to.exist;
-        const contentItem = testNode.value as Record<string, Item>;
-        expect(contentItem).to.have.property('Content');
-        const content = contentItem['Content']!;
-        expect(isText(content)).to.be.true;
-        expect((content as Text).value).to.equal('world');
+        const testNode = result2.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('world');
+        }
       }
     });
   });
@@ -88,8 +84,8 @@ describe('Parser - Expression Tests', () => {
             Name: item('Test'),
             Type: item(':='),
             Sequence: item([
-              item({ string: item({ Text: item('hello') }) }),
-              item({ string: item({ Text: item('world') }) })
+              item({ String: item({ Text: item('hello') }) }),
+              item({ String: item({ Text: item('world') }) })
             ])
           })
         ]),
@@ -104,7 +100,14 @@ describe('Parser - Expression Tests', () => {
       const input = 'helloworld';
       const result = parser.parse(new StringStream(input));
       expect(result).to.not.be.undefined;
-      expect(result?.value).to.have.property('Test');
+      if (result) {
+        const testNode = result.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('helloworld');
+        }
+      }
 
       // Test with a non-matching sequence
       const inputNonMatching = 'hello';
@@ -122,11 +125,11 @@ describe('Parser - Expression Tests', () => {
             Name: item('Test'),
             Type: item(':='),
             Sequence: item([
-              item({ string: item({ Text: item('hello') }) }),
+              item({ String: item({ Text: item('hello') }) }),
               item({
-                optional: item({
+                Optional: item({
                   Sequence: item([
-                    item({ string: item({ Text: item('world') }) })
+                    item({ String: item({ Text: item('world') }) })
                   ])
                 })
               })
@@ -143,13 +146,27 @@ describe('Parser - Expression Tests', () => {
       const inputWithOptional = 'helloworld';
       const resultWithOptional = parser.parse(new StringStream(inputWithOptional));
       expect(resultWithOptional).to.not.be.undefined;
-      expect(resultWithOptional?.value).to.have.property('Test');
+      if (resultWithOptional) {
+        const testNode = resultWithOptional.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('helloworld');
+        }
+      }
 
       // Test without the optional part
       const inputWithoutOptional = 'hello';
       const resultWithoutOptional = parser.parse(new StringStream(inputWithoutOptional));
       expect(resultWithoutOptional).to.not.be.undefined;
-      expect(resultWithoutOptional?.value).to.have.property('Test');
+      if (resultWithoutOptional) {
+        const testNode = resultWithoutOptional.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('hello');
+        }
+      }
     });
   });
 
@@ -163,10 +180,10 @@ describe('Parser - Expression Tests', () => {
             Type: item(':='),
             Sequence: item([
               item({
-                group: item({
+                Group: item({
                   Sequence: item([
-                    item({ string: item({ Text: item('hello') }) }),
-                    item({ string: item({ Text: item('world') }) })
+                    item({ String: item({ Text: item('hello') }) }),
+                    item({ String: item({ Text: item('world') }) })
                   ])
                 })
               })
@@ -183,7 +200,14 @@ describe('Parser - Expression Tests', () => {
       const input = 'helloworld';
       const result = parser.parse(new StringStream(input));
       expect(result).to.not.be.undefined;
-      expect(result?.value).to.have.property('Test');
+      if (result) {
+        const testNode = result.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('helloworld');
+        }
+      }
     });
   });
 
@@ -197,8 +221,8 @@ describe('Parser - Expression Tests', () => {
             Type: item(':='),
             Sequence: item([
               item({
-                repeat: item({
-                  Expression: item({ string: item({ Text: item('a') }) })
+                Repeat: item({
+                  Expression: item({ String: item({ Text: item('a') }) })
                 })
               })
             ])
@@ -214,19 +238,40 @@ describe('Parser - Expression Tests', () => {
       const inputMultiple = 'aaa';
       const resultMultiple = parser.parse(new StringStream(inputMultiple));
       expect(resultMultiple).to.not.be.undefined;
-      expect(resultMultiple?.value).to.have.property('Test');
+      if (resultMultiple) {
+        const testNode = resultMultiple.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('aaa');
+        }
+      }
 
       // Test with a single repetition
       const inputSingle = 'a';
       const resultSingle = parser.parse(new StringStream(inputSingle));
       expect(resultSingle).to.not.be.undefined;
-      expect(resultSingle?.value).to.have.property('Test');
+      if (resultSingle) {
+        const testNode = resultSingle.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('a');
+        }
+      }
 
       // Test with zero repetitions
       const inputZero = '';
       const resultZero = parser.parse(new StringStream(inputZero));
       expect(resultZero).to.not.be.undefined;
-      expect(resultZero?.value).to.have.property('Test');
+      if (resultZero) {
+        const testNode = resultZero.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('');
+        }
+      }
     });
 
     it('should parse a specific number of repetitions', () => {
@@ -238,11 +283,9 @@ describe('Parser - Expression Tests', () => {
             Type: item(':='),
             Sequence: item([
               item({
-                repeat: item({
-                  Expression: item({ string: item({ Text: item('a') }) }),
-                  Count: item({
-                    Value: item('3')
-                  })
+                Repeat: item({
+                  Expression: item({ String: item({ Text: item('a') }) }),
+                  Count: item('3')
                 })
               })
             ])
@@ -258,7 +301,14 @@ describe('Parser - Expression Tests', () => {
       const inputExact = 'aaa';
       const resultExact = parser.parse(new StringStream(inputExact));
       expect(resultExact).to.not.be.undefined;
-      expect(resultExact?.value).to.have.property('Test');
+      if (resultExact) {
+        const testNode = resultExact.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('aaa');
+        }
+      }
 
       // Test with too few repetitions
       const inputTooFew = 'aa';
@@ -280,12 +330,10 @@ describe('Parser - Expression Tests', () => {
             Type: item(':='),
             Sequence: item([
               item({
-                repeat: item({
-                  Expression: item({ string: item({ Text: item('a') }) }),
-                  Range: item({
-                    From: item('2'),
-                    To: item('4')
-                  })
+                Repeat: item({
+                  Expression: item({ String: item({ Text: item('a') }) }),
+                  From: item('2'),
+                  To: item('4')
                 })
               })
             ])
@@ -301,19 +349,40 @@ describe('Parser - Expression Tests', () => {
       const inputMin = 'aa';
       const resultMin = parser.parse(new StringStream(inputMin));
       expect(resultMin).to.not.be.undefined;
-      expect(resultMin?.value).to.have.property('Test');
+      if (resultMin) {
+        const testNode = resultMin.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('aa');
+        }
+      }
 
       // Test with the maximum number of repetitions
       const inputMax = 'aaaa';
       const resultMax = parser.parse(new StringStream(inputMax));
       expect(resultMax).to.not.be.undefined;
-      expect(resultMax?.value).to.have.property('Test');
+      if (resultMax) {
+        const testNode = resultMax.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('aaaa');
+        }
+      }
 
       // Test with a number in between
       const inputMid = 'aaa';
       const resultMid = parser.parse(new StringStream(inputMid));
       expect(resultMid).to.not.be.undefined;
-      expect(resultMid?.value).to.have.property('Test');
+      if (resultMid) {
+        const testNode = resultMid.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('aaa');
+        }
+      }
 
       // Test with too few repetitions
       const inputTooFew = 'a';
@@ -337,9 +406,9 @@ describe('Parser - Expression Tests', () => {
             Type: item(':='),
             Sequence: item([
               item({
-                separated: item({
-                  Expression: item({ string: item({ Text: item('item') }) }),
-                  Separator: item({ string: item({ Text: item(',') }) })
+                Separated: item({
+                  Expression: item({ String: item({ Text: item('item') }) }),
+                  Separator: item({ String: item({ Text: item(',') }) })
                 })
               })
             ])
@@ -355,19 +424,40 @@ describe('Parser - Expression Tests', () => {
       const inputMultiple = 'item,item,item';
       const resultMultiple = parser.parse(new StringStream(inputMultiple));
       expect(resultMultiple).to.not.be.undefined;
-      expect(resultMultiple?.value).to.have.property('Test');
+      if (resultMultiple) {
+        const testNode = resultMultiple.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('itemitemitem');
+        }
+      }
 
       // Test with a single item
       const inputSingle = 'item';
       const resultSingle = parser.parse(new StringStream(inputSingle));
       expect(resultSingle).to.not.be.undefined;
-      expect(resultSingle?.value).to.have.property('Test');
+      if (resultSingle) {
+        const testNode = resultSingle.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('item');
+        }
+      }
 
       // Test with zero items
       const inputZero = '';
       const resultZero = parser.parse(new StringStream(inputZero));
       expect(resultZero).to.not.be.undefined;
-      expect(resultZero?.value).to.have.property('Test');
+      if (resultZero) {
+        const testNode = resultZero.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('');
+        }
+      }
     });
   });
 
@@ -381,11 +471,11 @@ describe('Parser - Expression Tests', () => {
             Type: item(':='),
             Sequence: item([
               item({
-                declaration: item({
+                Declaration: item({
                   Name: item('Content'),
                   Expression: item({
-                    capture: item({
-                      Expression: item({ string: item({ Text: item('hello') }) })
+                    Capture: item({
+                      Expression: item({ String: item({ Text: item('hello') }) })
                     })
                   })
                 })
@@ -406,10 +496,16 @@ describe('Parser - Expression Tests', () => {
 
       if (result) {
         const testNode = result.value as Record<string, Item>;
-        const contentItem = testNode['Test']?.value as Record<string, Item>;
-        expect(contentItem).to.have.property('Content');
-        expect(isText(contentItem['Content']!)).to.be.true;
-        expect(contentItem['Content']!.value).to.equal('hello');
+        expect(testNode).to.have.property('Test');
+        expect(isNode(testNode['Test'])).to.be.true;
+        if (isNode(testNode['Test'])) {
+          const testValue = testNode['Test'].value;
+          expect(testValue).to.have.property('Content');
+          expect(isText(testValue['Content'])).to.be.true;
+          if (isText(testValue['Content'])) {
+            expect(testValue['Content'].value).to.equal('hello');
+          }
+        }
       }
     });
   });
@@ -424,9 +520,9 @@ describe('Parser - Expression Tests', () => {
             Type: item(':='),
             Sequence: item([
               item({
-                andNot: item({
-                  Expression: item({ string: item({ Text: item('var') }) }),
-                  NotExpression: item({ string: item({ Text: item('if') }) })
+                AndNot: item({
+                  Expression: item({ String: item({ Text: item('var') }) }),
+                  Not: item({ String: item({ Text: item('if') }) })
                 })
               })
             ])
@@ -442,7 +538,14 @@ describe('Parser - Expression Tests', () => {
       const inputMatching = 'var';
       const resultMatching = parser.parse(new StringStream(inputMatching));
       expect(resultMatching).to.not.be.undefined;
-      expect(resultMatching?.value).to.have.property('Test');
+      if (resultMatching) {
+        const testNode = resultMatching.value as Record<string, Item>;
+        expect(testNode).to.have.property('Test');
+        expect(isText(testNode['Test'])).to.be.true;
+        if (isText(testNode['Test'])) {
+          expect(testNode['Test'].value).to.equal('var');
+        }
+      }
 
       // Test with 'if' (should not match)
       const inputNonMatching = 'if';
@@ -461,16 +564,12 @@ describe('Parser - Expression Tests', () => {
             Type: item(':='),
             Sequence: item([
               item({
-                declaration: item({
+                Declaration: item({
                   Name: item('Content'),
                   Expression: item({
-                    as: item({
-                      Expression: item({ string: item({ Text: item('hello') }) }),
-                      Value: item({
-                        String: item({
-                          Value: item('world')
-                        })
-                      })
+                    As: item({
+                      Expression: item({ String: item({ Text: item('hello') }) }),
+                      Value: item({ String: item({ Text: item('world') }) })
                     })
                   })
                 })
@@ -491,10 +590,16 @@ describe('Parser - Expression Tests', () => {
 
       if (result) {
         const testNode = result.value as Record<string, Item>;
-        const contentItem = testNode['Test']?.value as Record<string, Item>;
-        expect(contentItem).to.have.property('Content');
-        expect(isText(contentItem['Content']!)).to.be.true;
-        expect(contentItem['Content']!.value).to.equal('world'); // Value should be replaced
+        expect(testNode).to.have.property('Test');
+        expect(isNode(testNode['Test'])).to.be.true;
+        if (isNode(testNode['Test'])) {
+          const testValue = testNode['Test'].value;
+          expect(testValue).to.have.property('Content');
+          expect(isText(testValue['Content'])).to.be.true;
+          if (isText(testValue['Content'])) {
+            expect(testValue['Content'].value).to.equal('world'); // Value should be replaced
+          }
+        }
       }
     });
   });
@@ -509,15 +614,15 @@ describe('Parser - Expression Tests', () => {
             Type: item(':='),
             Sequence: item([
               item({
-                declaration: item({
+                Declaration: item({
                   Name: item('FirstName'),
-                  Expression: item({ string: item({ Text: item('John') }) })
+                  Expression: item({ String: item({ Text: item('John') }) })
                 })
               }),
               item({
-                declaration: item({
+                Declaration: item({
                   Name: item('LastName'),
-                  Expression: item({ string: item({ Text: item('Doe') }) })
+                  Expression: item({ String: item({ Text: item('Doe') }) })
                 })
               })
             ])
@@ -536,13 +641,21 @@ describe('Parser - Expression Tests', () => {
 
       if (result) {
         const testNode = result.value as Record<string, Item>;
-        const testItem = testNode['Test']?.value as Record<string, Item>;
-        expect(testItem).to.have.property('FirstName');
-        expect(isText(testItem['FirstName']!)).to.be.true;
-        expect(testItem['FirstName']!.value).to.equal('John');
-        expect(testItem).to.have.property('LastName');
-        expect(isText(testItem['LastName']!)).to.be.true;
-        expect(testItem['LastName']!.value).to.equal('Doe');
+        expect(testNode).to.have.property('Test');
+        expect(isNode(testNode['Test'])).to.be.true;
+        if (isNode(testNode['Test'])) {
+          const testValue = testNode['Test'].value;
+          expect(testValue).to.have.property('FirstName');
+          expect(isText(testValue['FirstName'])).to.be.true;
+          if (isText(testValue['FirstName'])) {
+            expect(testValue['FirstName'].value).to.equal('John');
+          }
+          expect(testValue).to.have.property('LastName');
+          expect(isText(testValue['LastName'])).to.be.true;
+          if (isText(testValue['LastName'])) {
+            expect(testValue['LastName'].value).to.equal('Doe');
+          }
+        }
       }
     });
   });

@@ -64,6 +64,7 @@ export function createDefinition(name: string, precedence: number, instance: Nod
 		precedence,
 		instance,
 		recursiveness: Recursiveness.None,
+		associativity: Associativity.None,
 		isLeftRecursive() {
 			return (this.recursiveness! & (Recursiveness.Left | Recursiveness.Full)) !== Recursiveness.None;
 		}

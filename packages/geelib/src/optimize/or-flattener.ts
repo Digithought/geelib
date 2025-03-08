@@ -5,7 +5,7 @@ import type { VisitorRule, VisitorContext } from '../visitor.js';
 
 export class OrFlattener implements VisitorRule {
 	name = 'OrFlattener';
-	memberName = 'or';
+	memberName = 'Or';
 
 	visit(member: Member, context: VisitorContext): Member | undefined {
 		const [name, item] = member;

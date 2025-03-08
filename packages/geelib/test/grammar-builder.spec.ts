@@ -14,9 +14,17 @@ describe('Grammar Builder', () => {
             Type: item('='),
             Sequence: item([
               item({
-                range: item({
-                  From: item({ Literal: item('0') }),
-                  To: item({ Literal: item('9') })
+                Range: item({
+                  From: item({
+                    Char: item({
+                      Literal: item('0')
+                    })
+                  }),
+                  To: item({
+                    Char: item({
+                      Literal: item('9')
+                    })
+                  })
                 })
               })
             ])
@@ -50,9 +58,17 @@ describe('Grammar Builder', () => {
             Type: item('='),
             Sequence: item([
               item({
-                range: item({
-                  From: item({ Literal: item('0') }),
-                  To: item({ Literal: item('9') })
+                Range: item({
+                  From: item({
+                    Char: item({
+                      Literal: item('0')
+                    })
+                  }),
+                  To: item({
+                    Char: item({
+                      Literal: item('9')
+                    })
+                  })
                 })
               })
             ])
@@ -62,9 +78,17 @@ describe('Grammar Builder', () => {
             Type: item('='),
             Sequence: item([
               item({
-                range: item({
-                  From: item({ Literal: item('a') }),
-                  To: item({ Literal: item('z') })
+                Range: item({
+                  From: item({
+                    Char: item({
+                      Literal: item('a')
+                    })
+                  }),
+                  To: item({
+                    Char: item({
+                      Literal: item('z')
+                    })
+                  })
                 })
               })
             ])
@@ -74,15 +98,15 @@ describe('Grammar Builder', () => {
             Type: item('='),
             Sequence: item([
               item({
-                or: item({
+                Or: item({
                   Expressions: item([
                     item({
-                      reference: item({
+                      Reference: item({
                         Name: item('digit')
                       })
                     }),
                     item({
-                      reference: item({
+                      Reference: item({
                         Name: item('letter')
                       })
                     })
@@ -106,39 +130,25 @@ describe('Grammar Builder', () => {
     });
 
     it('should detect left recursion', () => {
-      // Create an AST with left recursion
+      // Create a simpler AST with left recursion
       const ast = item({
         Definitions: item([
           item({
             Name: item('expr'),
             Type: item('='),
+            Precedence: item('1'),
             Sequence: item([
               item({
-                or: item({
-                  Expressions: item([
-                    item({
-                      reference: item({
-                        Name: item('term')
-                      })
-                    }),
-                    item({
-                      sequence: item([
-                        item({
-                          reference: item({
-                            Name: item('expr')
-                          })
-                        }),
-                        item({
-                          literal: item('+')
-                        }),
-                        item({
-                          reference: item({
-                            Name: item('term')
-                          })
-                        })
-                      ])
-                    })
-                  ])
+                Reference: item({
+                  Name: item('expr')
+                })
+              }),
+              item({
+                Literal: item('+')
+              }),
+              item({
+                Reference: item({
+                  Name: item('term')
                 })
               })
             ])
@@ -148,9 +158,17 @@ describe('Grammar Builder', () => {
             Type: item('='),
             Sequence: item([
               item({
-                range: item({
-                  From: item({ Literal: item('0') }),
-                  To: item({ Literal: item('9') })
+                Range: item({
+                  From: item({
+                    Char: item({
+                      Literal: item('0')
+                    })
+                  }),
+                  To: item({
+                    Char: item({
+                      Literal: item('9')
+                    })
+                  })
                 })
               })
             ])
@@ -175,7 +193,7 @@ describe('Grammar Builder', () => {
             Type: item('='),
             Sequence: item([
               item({
-                reference: item({
+                Reference: item({
                   Name: item('term')
                 })
               })
@@ -185,24 +203,22 @@ describe('Grammar Builder', () => {
             Name: item('expr'),
             Type: item('='),
             Precedence: item('1'),
-            Associativity: item('left'),
+            Associativity: item('L'),
             Sequence: item([
               item({
-                sequence: item([
-                  item({
-                    reference: item({
-                      Name: item('expr')
-                    })
-                  }),
-                  item({
-                    literal: item('+')
-                  }),
-                  item({
-                    reference: item({
-                      Name: item('term')
-                    })
-                  })
-                ])
+                Reference: item({
+                  Name: item('expr')
+                })
+              }),
+              item({
+                Char: item({
+                  Literal: item('+')
+                })
+              }),
+              item({
+                Reference: item({
+                  Name: item('term')
+                })
               })
             ])
           }),
@@ -211,9 +227,17 @@ describe('Grammar Builder', () => {
             Type: item('='),
             Sequence: item([
               item({
-                range: item({
-                  From: item({ Literal: item('0') }),
-                  To: item({ Literal: item('9') })
+                Range: item({
+                  From: item({
+                    Char: item({
+                      Literal: item('0')
+                    })
+                  }),
+                  To: item({
+                    Char: item({
+                      Literal: item('9')
+                    })
+                  })
                 })
               })
             ])
