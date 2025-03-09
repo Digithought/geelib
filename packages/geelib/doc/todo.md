@@ -7,3 +7,5 @@
 * Split out null check from isNode, isList, and isText for performance (check only when grammar validation won't affect)
 * Track what rule got the furthest for better errors 
 * Build an execution tree
+  * Rather than make decisions, such as which definitions are lower priority, at runtime, build the nodes with all of this embedded
+* Optimization: combine adjacent Strings and strings with Char literals
