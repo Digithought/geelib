@@ -1,11 +1,7 @@
 import { CharSet } from './types.js';
 import type { Node } from "./ast/ast.js";
 
-export enum Associativity {
-  None = 0,
-  Left = 1,
-  Right = 2
-}
+export type Associativity = 'L' | 'R';
 
 export enum Recursiveness {
   None = 0,
@@ -31,7 +27,7 @@ export interface Definition {
   name: string;
   precedence: number;
   instance: Node;
-  associativity?: Associativity;
+  associativity: Associativity;
   filter?: Filter;
   recursiveness?: number;
   isLeftRecursive(): boolean;
@@ -64,7 +60,7 @@ export function createDefinition(name: string, precedence: number, instance: Nod
 		precedence,
 		instance,
 		recursiveness: Recursiveness.None,
-		associativity: Associativity.None,
+		associativity: 'L',
 		isLeftRecursive() {
 			return (this.recursiveness! & (Recursiveness.Left | Recursiveness.Full)) !== Recursiveness.None;
 		}

@@ -1,6 +1,7 @@
 import { expect } from 'aegir/chai';
 import { buildGrammar } from '../src/grammar-builder.js';
-import { Associativity, Recursiveness } from '../src/definition.js';
+import { Recursiveness } from '../src/definition.js';
+import type { Associativity } from '../src/definition.js';
 import { item } from '../src/ast/ast.js';
 
 describe('Grammar Builder', () => {
@@ -42,7 +43,7 @@ describe('Grammar Builder', () => {
       expect(grammar.definitions['digit']!.definitions.length).to.equal(1);
       expect(grammar.definitions['digit']!.definitions[0]!.name).to.equal('digit');
       expect(grammar.definitions['digit']!.definitions[0]!.precedence).to.equal(Number.MAX_SAFE_INTEGER);
-      expect(grammar.definitions['digit']!.definitions[0]!.associativity).to.equal(Associativity.None);
+      expect(grammar.definitions['digit']!.definitions[0]!.associativity).to.equal('L');
 
       // The recursiveness value might be different in the refactored code
       // Just check that it's defined
@@ -251,9 +252,9 @@ describe('Grammar Builder', () => {
 
       // Check that precedence and associativity are set correctly
       expect(grammar.definitions['expr']!.definitions[0]!.precedence).to.equal(Number.MAX_SAFE_INTEGER);
-      expect(grammar.definitions['expr']!.definitions[0]!.associativity).to.equal(Associativity.None);
+      expect(grammar.definitions['expr']!.definitions[0]!.associativity).to.equal('L');
       expect(grammar.definitions['expr']!.definitions[1]!.precedence).to.equal(1);
-      expect(grammar.definitions['expr']!.definitions[1]!.associativity).to.equal(Associativity.Left);
+      expect(grammar.definitions['expr']!.definitions[1]!.associativity).to.equal('L');
     });
   });
 });

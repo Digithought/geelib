@@ -119,10 +119,10 @@ export function getRequiredNumberValue(item: Item | undefined, key: string, erro
 /** Returns the start and end of two items */
 export function mergeSpan(left: Span | undefined, right: Span | undefined): Span | undefined {
 	const result = {
-		start: Math.min(left?.start ?? Infinity, right?.start ?? Infinity),
-		end: Math.max(left?.end ?? -Infinity, right?.end ?? -Infinity)
+		start: Math.min(left?.start ?? Number.MAX_SAFE_INTEGER, right?.start ?? Number.MAX_SAFE_INTEGER),
+		end: Math.max(left?.end ?? Number.MIN_SAFE_INTEGER, right?.end ?? Number.MIN_SAFE_INTEGER)
 	};
-	return result.start === Infinity || result.end === -Infinity ? undefined : result as Span;
+	return result.start === Number.MAX_SAFE_INTEGER || result.end === Number.MIN_SAFE_INTEGER ? undefined : result as Span;
 }
 
 /** Returns the span of an array of items */

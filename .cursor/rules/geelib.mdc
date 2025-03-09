@@ -3,4 +3,4 @@ description: General information about the geelib codebase
 globs: 
 alwaysApply: false
 ---
-Root is npm workspace.  The geelib codebase lives in packages/geelib.  Geelib uses aegir (mocha tests), ES modules, and TypeScript.  Tests go in "test" folder and must end in `*.spec.ts`.  Documentation is in `doc` folder.  Note that I have "noUncheckedIndexedAccess": true in tsconfig, so be sure to assert not nulls in array access.
+Root is npm workspace.  The geelib codebase lives in packages/geelib.  Geelib uses aegir (mocha tests), ES modules, and TypeScript.  Tests go in "test" folder and must end in `*.spec.ts`.  Tests are ran like this: `cd C:\Projects\Digithought\geelib\packages\geelib && npm run test:node -- -g "<test name>"`  Documentation is in `doc` folder.  Note that "noUncheckedIndexedAccess" is true in tsconfig, so be sure to assert not null ("!") in array access.

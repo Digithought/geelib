@@ -16,6 +16,14 @@ export const geeAst = item({ Unit: item({
 							Expression: item({ Reference: item({ Name: item('identifier') }) })
 						}) }),
 						item({ Optional: item({ Sequence: item([
+							item({ Quote: item({ Text: item('root') }) }),
+							item({ Quote: item({ Text: item(':') }) }),
+							item({ Declaration: item({
+								Name: item('Root'),
+								Expression: item({ Reference: item({ Name: item('identifier') }) })
+							}) })
+						]) }) }),
+						item({ Optional: item({ Sequence: item([
 							item({ Quote: item({ Text: item('comparer') }) }),
 							item({ Quote: item({ Text: item(':') }) }),
 							item({ Declaration: item({

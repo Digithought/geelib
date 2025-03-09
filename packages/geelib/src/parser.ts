@@ -3,7 +3,6 @@ import type { Item, List, Member, Node } from "./ast/ast.js";
 import { item, getRequiredAttribute, getTextValue, getRequiredTextValue, isList, isNode, singleMember, getNumberValue, getAttribute } from './ast/ast.js';
 import { ParserContext } from './parser-context.js';
 import type { Definition } from './definition.js';
-import { Associativity } from './definition.js';
 import { OptimizedGrammar } from './optimize/optimizer.js';
 import { GrammarError, ParserError } from './errors.js';
 import { captured, mergeResults, uncaptured } from './capture.js';
@@ -63,9 +62,9 @@ export class Parser {
 
       // If same precedence, sort by associativity
       // Right associative definitions should come before left associative ones
-      if (a.associativity === Associativity.Right && b.associativity === Associativity.Left) {
+      if (a.associativity === 'R' && b.associativity === 'L') {
         return -1;
-      } else if (a.associativity === Associativity.Left && b.associativity === Associativity.Right) {
+      } else if (a.associativity === 'L' && b.associativity === 'R') {
         return 1;
       }
 

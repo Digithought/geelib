@@ -6,3 +6,4 @@
 * Move caching to all expressions
 * Split out null check from isNode, isList, and isText for performance (check only when grammar validation won't affect)
 * Track what rule got the furthest for better errors 
+* Build an execution tree

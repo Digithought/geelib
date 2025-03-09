@@ -1,12 +1,20 @@
 import { isNode, isList, singleMember, getTextValue } from "./ast/ast.js";
-import type { Definition, DefinitionGroup, DefinitionGroups } from "./definition.js";
-import { Associativity, RecurseMask, Recursiveness, createDefinition } from "./definition.js";
+import type { Associativity, Definition, DefinitionGroup, DefinitionGroups } from "./definition.js";
+import { RecurseMask, Recursiveness, createDefinition } from "./definition.js";
 import type { List, Node, Text, Item } from "./ast/ast.js";
 import { Grammar } from "./grammar.js";
 
 /** Build a grammar from an AST */
-export function buildGrammar(unit: Node): Grammar {
+export function buildGrammar(node: Item): Grammar {
 	const groups: DefinitionGroups = {};
+
+	// Check if the AST has a Unit property
+	if (!isNode(node) || node.value['Unit'] === undefined) {
+		throw new Error('Grammar must be a Node with a Unit property');
+	}
+
+	const unit = node.value['Unit'] as Node;
+	if (!isNode(unit)) throw new Error('Unit must be a Node');
 
 	// Process all definitions
 	const definitions = unit.value['Definitions'] as List;
@@ -43,17 +51,29 @@ export function buildGrammar(unit: Node): Grammar {
 	// Third pass: Validate recursiveness
 	validateRecursiveness(groups);
 
+	// Get whitespace rule
+	let whitespaceRule: string | undefined;
 	const whitespaceValue = getTextValue(unit, 'Whitespace');
-	if (whitespaceValue && !Object.hasOwn(groups, whitespaceValue)) {
-		throw new Error(`Whitespace rule ${whitespaceValue} not found in grammar`);
+	if (whitespaceValue) {
+		if (!Object.hasOwn(groups, whitespaceValue)) {
+			throw new Error(`Whitespace rule ${whitespaceValue} not found in grammar`);
+		}
+		whitespaceRule = whitespaceValue;
+	} else if (Object.hasOwn(groups, '_')) {
+		whitespaceRule = '_';
 	}
-	const whitespaceRule = whitespaceValue ?? (Object.hasOwn(groups, '_') ? '_' : undefined);
 
+	// Get case sensitivity
 	const comparerValue = getTextValue(unit, 'Comparer');
 	const caseSensitive = comparerValue === 'sensitive';
 
-	// Get the root name from the Root property if it exists, otherwise use the first definition
-	const rootName = getTextValue(unit, 'Root') || (() => {
+	// Get the root name
+	let rootName: string;
+	const rootValue = getTextValue(unit, 'Root');
+	if (rootValue) {
+		rootName = rootValue;
+	} else {
+		// Use the first definition if no root is specified
 		const firstDef = definitions.value[0];
 		if (!isNode(firstDef)) {
 			throw new Error('First definition is not a node');
@@ -62,13 +82,14 @@ export function buildGrammar(unit: Node): Grammar {
 		if (!name) {
 			throw new Error('First definition has no name');
 		}
-		return name;
-	})();
+		rootName = name;
+	}
 
 	return new Grammar(groups, rootName, { caseSensitive, whitespaceRule });
 }
 
-function buildDefinition(node: Node): Definition {
+/** Build a definition from an AST node */
+export function buildDefinition(node: Node): Definition {
 	const nameValue = getTextValue(node, 'Name');
 	if (!nameValue) {
 		throw new Error('Definition has no name');
@@ -84,20 +105,29 @@ function buildDefinition(node: Node): Definition {
 	);
 
 	if (associativityValue) {
-		definition.associativity = associativityValue === 'R' ? Associativity.Right : Associativity.Left;
+		// Validate associativity value
+		if (associativityValue !== 'L' && associativityValue !== 'R') {
+			throw new Error(
+				`Invalid associativity '${associativityValue}' for definition '${nameValue}'.\n` +
+				`Associativity must be 'L' (left) or 'R' (right).`
+			);
+		}
+		definition.associativity = associativityValue;
 	}
+	// Default is 'L' (set in createDefinition)
 
 	return definition;
 }
 
-function determineGroupRecursiveness(name: string, group: DefinitionGroup, groups: DefinitionGroups): void {
+/** Determine the recursiveness of a definition group */
+export function determineGroupRecursiveness(name: string, group: DefinitionGroup, groups: DefinitionGroups): void {
 	// Initialize group recursiveness
 	group.recursiveness = Recursiveness.None;
 	group.referenceMinPrecedents = new Map<Node, number>();
 
 	// Determine recursiveness for each definition in the group
 	for (const definition of group.definitions) {
-		// Determine recursiveness for this definition
+		// Determine recursiveness for this definition (without validation)
 		const references = determineDefinitionRecursiveness(name, definition, groups);
 
 		// Update group recursiveness
@@ -135,25 +165,49 @@ function determineDefinitionRecursiveness(rootName: string, definition: Definiti
  */
 function validateRecursiveness(groups: DefinitionGroups): void {
 	for (const [groupName, group] of Object.entries(groups)) {
-		for (const definition of group.definitions) {
-			// Validate recursiveness based on precedence
-			if (definition.precedence === Number.MAX_SAFE_INTEGER) {
-				if ((definition.recursiveness! & (Recursiveness.Left | Recursiveness.Right | Recursiveness.Full)) !== Recursiveness.None) {
-					throw new Error(`Invalid grammar for definition ${groupName}. Recursive definitions must be given explicit precedence.`);
-				}
-			} else {
-				// Check if this definition is part of a group where any definition is recursive
-				const isGroupRecursive = (group.recursiveness! & (Recursiveness.Left | Recursiveness.Right | Recursiveness.Full)) !== Recursiveness.None;
-
-				// Only throw an error if the group is not recursive at all
-				if (!isGroupRecursive) {
-					throw new Error(`Invalid grammar for definition ${groupName} (precedence ${definition.precedence}). Only recursive definitions may be in an explicit precedence definition.`);
-				}
-			}
-		}
+		validateGroupRecursiveness(groupName, group);
 	}
 }
 
+/**
+ * Validates the recursiveness of a definition group
+ */
+function validateGroupRecursiveness(groupName: string, group: DefinitionGroup): void {
+	const isGroupRecursive = (group.recursiveness! & (Recursiveness.Left | Recursiveness.Right | Recursiveness.Full)) !== Recursiveness.None;
+
+	for (const definition of group.definitions) {
+		validateDefinitionRecursiveness(definition, isGroupRecursive);
+	}
+}
+
+/**
+ * Validates the recursiveness of a single definition
+ */
+function validateDefinitionRecursiveness(definition: Definition, isGroupRecursive: boolean): void {
+	const isRecursive = (definition.recursiveness! & (Recursiveness.Left | Recursiveness.Right | Recursiveness.Full)) !== Recursiveness.None;
+	const hasExplicitPrecedence = definition.precedence !== Number.MAX_SAFE_INTEGER;
+
+	if (isRecursive && !hasExplicitPrecedence) {
+		throw new Error(
+			`Invalid grammar for definition '${definition.name}'. Recursive definitions must have explicit precedence.\n` +
+			`Add a precedence value after the definition name, e.g., '${definition.name} 0 :='`
+		);
+	}
+
+	if (!isRecursive && hasExplicitPrecedence) {
+		throw new Error(
+			`Invalid grammar for definition '${definition.name}' (precedence ${definition.precedence}). Only recursive definitions may have explicit precedence.\n` +
+			`Remove the precedence value, e.g., change '${definition.name} ${definition.precedence} :=' to '${definition.name} :='`
+		);
+	}
+}
+
+/**
+ * Determines the recursiveness of a sequence
+ * This function analyzes a sequence to determine if it contains recursive references
+ * and classifies the recursion as left, right, or full.
+ * It handles optional elements by tracking exclusivity.
+ */
 function determineSequenceRecursiveness(
 	rootName: string,
 	sequence: List,
@@ -162,7 +216,7 @@ function determineSequenceRecursiveness(
 	references: Set<Node>,
 	mask: number = RecurseMask.Left | RecurseMask.Right
 ): number {
-	if (!sequence || !isList(sequence)) {
+	if (!sequence || !isList(sequence) || sequence.value.length === 0) {
 		return Recursiveness.None;
 	}
 
@@ -186,6 +240,11 @@ function determineSequenceRecursiveness(
 				RecurseMask.Left
 			);
 			result |= left;
+
+			// If we found an exclusive left recursion, stop checking
+			if (left & Recursiveness.IsExclusive) {
+				break;
+			}
 		}
 	}
 
@@ -206,10 +265,17 @@ function determineSequenceRecursiveness(
 				references,
 				RecurseMask.Right
 			);
+
+			// Check for full recursion (both left and right)
 			if (rightIndex <= leftIndex && (result & Recursiveness.Left) && (right & Recursiveness.Right)) {
 				result = (result | Recursiveness.Full) & ~(Recursiveness.Left | Recursiveness.Right);
 			} else {
 				result |= right;
+			}
+
+			// If we found an exclusive right recursion, stop checking
+			if (right & Recursiveness.IsExclusive) {
+				break;
 			}
 		}
 	}
@@ -225,6 +291,12 @@ function determineSequenceRecursiveness(
 	return result;
 }
 
+/**
+ * Determines the recursiveness of an expression
+ * This function analyzes an expression to determine if it contains recursive references
+ * and classifies the recursion as left, right, or full.
+ * It tracks exclusivity to handle optional elements correctly.
+ */
 function determineExpressionRecursiveness(
 	rootName: string,
 	node: Node,
@@ -233,116 +305,40 @@ function determineExpressionRecursiveness(
 	references: Set<Node>,
 	mask: number
 ): number {
-	// Get the node type from the first member
-	const member = singleMember(node);
-	if (!member) {
-		return Recursiveness.None;
-	}
+	// Get the type of the expression
+	const memberTuple = singleMember(node);
+	if (!memberTuple) return Recursiveness.None;
 
-	const nodeType = member[0];
+	const type = memberTuple[0]; // Extract the string from the Member tuple
 
-	switch (nodeType) {
-		case 'Repeat':
-		case 'Separated':
-		case 'AndNot':
-		case 'As':
-		case 'Declaration': {
-			const expr = node.value['Expression'] as Node;
-			if (!expr) return Recursiveness.None;
-			return determineExpressionRecursiveness(rootName, expr, groups, visited, references, mask);
-		}
-
-		case 'Or': {
-			const expressions = node.value['Expressions'] as List;
-			if (!expressions || !isList(expressions)) return Recursiveness.None;
-
-			let result = Recursiveness.None;
-			for (const expr of expressions.value) {
-				if (!isNode(expr)) continue;
-
-				const expressionResult = determineExpressionRecursiveness(
-					rootName,
-					expr,
-					groups,
-					visited,
-					references,
-					mask
-				);
-
-				// Combine recursiveness flags
-				result |= (expressionResult & ~Recursiveness.IsExclusive);
-
-				// If any expression is exclusive, the result is exclusive
-				if (expressionResult & Recursiveness.IsExclusive) {
-					result |= Recursiveness.IsExclusive;
-				}
-			}
-			return result;
-		}
-
-		case 'Group': {
-			const sequence = node.value['Sequence'] as List;
-			if (!sequence) return Recursiveness.None;
-			return determineSequenceRecursiveness(rootName, sequence, groups, visited, references, mask);
-		}
-
-		case 'Optional': {
-			const sequence = node.value['Sequence'] as List;
-			if (!sequence) return Recursiveness.None;
-			return determineSequenceRecursiveness(rootName, sequence, groups, visited, references, mask) &
-						 ~Recursiveness.IsExclusive;
-		}
-
+	switch (type) {
 		case 'Reference': {
-			const referenceNode = node.value['Reference'];
-			if (!referenceNode || !isNode(referenceNode)) {
-				return Recursiveness.None;
-			}
+			// Get the name of the referenced definition
+			const nameValue = getTextValue(node, 'Name');
+			if (!nameValue) return Recursiveness.None;
 
-			const nameNode = referenceNode.value['Name'];
+			// Add to references
+			references.add(node);
 
-			// Extract the name value directly from the nameNode
-			let nameValue: string | undefined;
-
-			if (isNode(nameNode)) {
-				nameValue = getTextValue(nameNode as Node, 'Value');
-			} else if (nameNode && typeof nameNode === 'object' && 'value' in nameNode) {
-				nameValue = String(nameNode.value);
-			} else if (nameNode) {
-				nameValue = String(nameNode);
-			}
-
-			if (!nameValue) {
-				return Recursiveness.None;
-			}
-
+			// Check if this is a recursive reference to the root
 			if (nameValue === rootName) {
-				// Found a recursive reference
-				references.add(node);
-				if ((mask & RecurseMask.Left) !== 0) {
-					return Recursiveness.Left | Recursiveness.IsExclusive;
-				} else if ((mask & RecurseMask.Right) !== 0) {
-					return Recursiveness.Right | Recursiveness.IsExclusive;
-				} else {
-					return Recursiveness.None;
-				}
+				// Determine recursion type based on mask
+				if (mask === RecurseMask.Left) return Recursiveness.Left | Recursiveness.IsExclusive;
+				if (mask === RecurseMask.Right) return Recursiveness.Right | Recursiveness.IsExclusive;
+				return Recursiveness.None; // Middle references don't contribute to recursion type
 			}
 
-			// If we've already visited this group, don't recurse
-			if (visited.has(nameValue)) {
-				return Recursiveness.None;
-			}
+			// Check if we've already visited this definition to prevent infinite recursion
+			if (visited.has(nameValue)) return Recursiveness.None;
 
-			// Get the referenced group
+			// Get the referenced definition group
 			const group = groups[nameValue];
-			if (!group) {
-				return returnTerminal(mask);
-			}
+			if (!group) return returnTerminal(mask);
 
-			// Mark as visited to prevent infinite recursion
+			// Add to visited set to prevent infinite recursion
 			visited.add(nameValue);
 
-			// Determine recursiveness for the referenced group
+			// Recursively check the referenced definition group
 			let result = Recursiveness.None;
 			for (const definition of group.definitions) {
 				const sequence = definition.instance.value['Sequence'] as List;
@@ -357,6 +353,97 @@ function determineExpressionRecursiveness(
 			return result;
 		}
 
+		case 'Sequence':
+		case 'Group': {
+			// Get the sequence
+			const sequence = node.value['Sequence'] as List;
+			if (!sequence) return Recursiveness.None;
+
+			// Recursively check the sequence
+			return determineSequenceRecursiveness(rootName, sequence, groups, visited, references, mask);
+		}
+
+		case 'Optional': {
+			// Get the sequence
+			const sequence = node.value['Sequence'] as List;
+			if (!sequence) return Recursiveness.None;
+
+			// Optional elements are non-exclusive
+			return determineSequenceRecursiveness(rootName, sequence, groups, visited, references, mask) & ~Recursiveness.IsExclusive;
+		}
+
+		case 'Or': {
+			// Get the expressions
+			const expressions = node.value['Expressions'] as List;
+			if (!expressions) return Recursiveness.None;
+
+			// Recursively check each expression
+			let result = Recursiveness.None;
+			for (const expr of expressions.value) {
+				if (!isNode(expr)) continue;
+
+				const expressionResult = determineExpressionRecursiveness(rootName, expr, groups, visited, references, mask);
+
+				// Combine recursiveness flags
+				result |= (expressionResult & ~Recursiveness.IsExclusive);
+
+				// If any expression is exclusive, the result is exclusive
+				if (expressionResult & Recursiveness.IsExclusive) {
+					result |= Recursiveness.IsExclusive;
+				}
+			}
+
+			return result;
+		}
+
+		case 'Repeat':
+		case 'Capture':
+		case 'Declaration': {
+			// Get the expression
+			const expression = node.value['Expression'] as Node;
+			if (!isNode(expression)) return Recursiveness.None;
+
+			// Recursively check the expression
+			return determineExpressionRecursiveness(rootName, expression, groups, visited, references, mask);
+		}
+
+		case 'As':
+		case 'AndNot': {
+			// Get the expression
+			const expression = node.value['Expression'] as Node;
+			if (!isNode(expression)) return Recursiveness.None;
+
+			// Recursively check the expression
+			return determineExpressionRecursiveness(rootName, expression, groups, visited, references, mask);
+		}
+
+		case 'Separated': {
+			// Get the expression and separator
+			const expression = node.value['Expression'] as Node;
+			const separator = node.value['Separator'] as Node;
+
+			let result = Recursiveness.None;
+
+			// Recursively check the expression
+			if (isNode(expression)) {
+				result |= determineExpressionRecursiveness(rootName, expression, groups, visited, references, mask);
+			}
+
+			// Recursively check the separator
+			if (isNode(separator)) {
+				result |= determineExpressionRecursiveness(rootName, separator, groups, visited, references, mask);
+			}
+
+			return result;
+		}
+
+		// Terminal expressions that don't contain references
+		case 'Range':
+		case 'Char':
+		case 'String':
+		case 'CharSet':
+			return returnTerminal(mask);
+
 		default:
 			// For unknown node types, try to process their children
 			for (const [key, value] of Object.entries(node.value)) {
@@ -369,6 +456,9 @@ function determineExpressionRecursiveness(
 	}
 }
 
+/**
+ * Returns the appropriate terminal recursiveness value based on the mask
+ */
 function returnTerminal(mask: number): number {
 	return ((mask & RecurseMask.Left) !== 0 ? Recursiveness.IsExclusive : Recursiveness.None) |
 				 ((mask & RecurseMask.Right) !== 0 ? Recursiveness.IsExclusive : Recursiveness.None);

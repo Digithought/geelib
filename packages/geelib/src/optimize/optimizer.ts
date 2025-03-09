@@ -1,6 +1,6 @@
 import type { Grammar, GrammarOptions } from '../grammar.js';
 import type { Node, List, Item, Text, Member } from "../ast/ast.js";
-import { isNode, isList } from "../ast/ast.js";
+import { isNode, isList, item } from "../ast/ast.js";
 import { NodeVisitor } from '../visitor.js';
 import type { VisitorContext } from '../visitor.js';
 
@@ -104,18 +104,15 @@ export function optimize(grammar: Grammar): OptimizedGrammar {
 
 		for (const definition of group.definitions) {
 			if (performPushUps) {
-				const sequence = definition.instance.value['Sequence'] as Item;
+				const sequence = definition.instance.value['Sequence'] as List;
 				// Only compute push-ups if there are no optional nodes
-				if (isList(sequence)) {
-					const sequenceItems = sequence.value as Item[];
-					if (!sequenceItems.some(item =>
-						isNode(item) && 'type' in item && item.type === 'optional'
-					)) {
-						context.referenceReplacements.set(
-							definition.name,
-							computePushUps(context, definition.name, sequence as List)
-						);
-					}
+				if (!sequence.value.some(item =>
+					isNode(item) && 'Optional' in item.value
+				)) {
+					context.referenceReplacements.set(
+						definition.name,
+						computePushUps(context, definition.name, sequence as List)
+					);
 				}
 			}
 			optimizedDefinitions.push(definition);
@@ -138,52 +135,33 @@ export function optimize(grammar: Grammar): OptimizedGrammar {
 function computePushUps(context: OptimizerContext, definitionName: string, sequence: List): Node {
 	// Find all items that can be pushed up (i.e., items before any optional or declaration)
 	const pushedUp: Item[] = [];
-	let i = 0;
 
-	if (!isList(sequence)) {
-		return { value: {} };
-	}
-
-	const sequenceItems = sequence.value as Item[];
-
-	for (; i < sequenceItems.length; i++) {
-		const expression = sequenceItems[i] as Item;
-		if (isNode(expression) && 'type' in expression && (containsDeclaration(expression) || expression.type === 'optional')) break;
+	for (const expression of sequence.value) {
+		if (isNode(expression) && ('Optional' in expression.value || containsDeclaration(expression))) break;
 		pushedUp.push(expression);
 	}
 
 	// If nothing to push up, return the original node
 	if (pushedUp.length === 0) {
-		return { value: {} };
+		return item({});
 	}
 
 	// Remove the pushed up items from the original sequence
-	sequenceItems.splice(0, pushedUp.length);
+	sequence.value.splice(0, pushedUp.length);
 
 	// If the sequence is now empty, add a reference to the definition
 	// This prevents infinite recursion
-	if (sequenceItems.length === 0) {
-		pushedUp.push({
-			value: {
-				Name: { type: 'text', value: definitionName } as Text
-			}
-		} as Node);
+	if (sequence.value.length === 0) {
+		pushedUp.push(item({ Reference: item({ Name: item(definitionName) }) }));
 	}
 
 	// Create a new group node with the pushed up items
-	return {
-		value: {
-			Sequence: {
-				type: 'list',
-				value: pushedUp
-			} as List
-		}
-	};
+	return item({ Sequence: item(pushedUp) });
 }
 
 function containsDeclaration(node: Node): boolean {
 	if (!isNode(node)) return false;
-	if ('type' in node && node.type === 'declaration') return true;
+	if ('Declaration' in node.value) return true;
 
 	const values = Object.values(node.value);
 	for (const value of values) {
